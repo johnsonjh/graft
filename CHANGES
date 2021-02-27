@@ -1,0 +1,247 @@
+Version 2.16 - 16 April 2018
+
+    - updated rmfiles() to finish handling orphaned symlinks. Thanks to
+      Matias A. Fonzo.
+    - updated man page. Modified logfile table to remove roff errors re
+      "cannot adjust line". Thanks to Matias A. Fonzo.
+    - updated man page. Expanded -r rootdir description to make it clearer.
+
+Version 2.15 - 13 April 2018
+
+    - removed PostScript version of documentation. Saves 1.1M for
+      downloads. After discussions with Matias A. Fonzo.
+    - fixed mklink to check for existing links to orphaned source symlinks.
+      Bug introduced in 2.11. Fixed by restoring original logic order.
+      Thanks to Matias A. Fonzo.
+
+Version 2.14 - 12 April 2018
+
+    - added -L option to show default locations of perl, log file, target
+      dir, and package dir. After feedback from Matias A. Fonzo.
+
+Version 2.13 - 13 March 2018
+
+    - added -r rootdir option to perform chroot() prior to all operations.
+      Thanks to Matias A. Fonzo.
+    - call to ls now calls /bin/ls (only used if copying with preserved
+      permissions)
+    - using simple stat() instead of /bin/ls if -r rootdir is also
+      specified
+    - minor optimizations in logger() calls
+
+Version 2.12 - 16 February 2017
+
+    - fixed delete mode for .graft-config files. Was deleting the file
+      instead of preserving it. Also enforcing CRC checks on deletion in
+      the same mode. Thanks to Matias A. Fonzo.
+    - .graft-config mode now preserves permissions on copied files when
+      SUPERUSER=1 and PRESERVEPERMS=1 are set in the Makefile. Thanks to
+      Matias A. Fonzo.
+
+Version 2.11 - 31 January 2017
+
+    - usage details for -C only appear if the Makefile specifies targets
+      for GRAFT-NEVER. Repeated for man page.
+    - all $option{x} instances replaced by $option{descriptiveWord}. Makes
+      it easier for me to read the code :)
+    - added .graft-config control file. This is a special case where the
+      source directory is _copied_ to the target rather than making
+      symbolic links. If there is a conflict then a file.new will be copied
+      instead. This lead to a major re-write of install(), uninstall() and
+      prune(). Requested by Matias A. Fonzo.
+    - major rewrite of the man page
+    - update to the graft.spec file to support "make rpm"
+    - created Debian control file to support "make deb"
+    - updated README with simple installation instructions
+
+Version 2.10 - 25 November 2016
+
+    - modifies conflict messages on deletion if .nograft or .graft-exclude
+      is in play. Requested by Matias A. Fonzo.
+
+Version 2.9 - 2 August 2016
+
+    - -n option honours exit status on conflict. Requested by
+      Matias A. Fonzo.
+
+Version 2.8 - 23 November 2015
+
+    - fixed trivial bug in 2.7. Graft was always exiting with status 4 :(
+
+Version 2.7 - 20 November 2015
+
+    - graft exits with a status of 4 if the logfile cannot be updated. Any
+      other error condition will override this action. Requested by
+      Matias A. Fonzo.
+
+Version 2.6 - 11 July 2015
+
+    - Updated manual page to provide more explict description of what
+      constitutes a package. Thanks to Matias A. Fonzo.
+    - Updated manual page to show that the are no files for -C (when appropriate).
+    - Updated manual page to show the location of the html/ps/pdf/txt docs.
+    - Move graft.1 to graft.man so that graft.1 can be built as part of a
+      simple make.
+    - Added generic targets to the Makefile for .pl and .man dependencies.
+    - Code cleanup and reworking. Runtime configuration and command line
+      options now stored in %config and %options hashes respectively. All
+      that work is done in an init() subroutine.
+    - Updated my email address in all relevant files.
+    - Updated location of graft homepage to
+      http://peters.gormand.com.au/Home/tools/graft in all relevant files.
+    - Updated html documentation to bring it up to date with respect to
+      Perl versions and the fact that most distros ship with Perl these
+      days so the bootstrap problem is not as important.
+    - Updated spec file to generate Makefile then use it.
+
+Version 2.5 - 26 June 2015
+
+    - Silently ignore -P if the effective user is not root. Thanks to
+      Matias A. Fonzo.
+
+Version 2.4 - 25 February 2002
+
+    - Code cleanup. Fixed lots of Perl style issues. (More to come)
+    - Fixed nasty bug where .graft-include files were being honoured
+      across multiple directories. This also fixes the problem
+      regarding defined(%hash) deprecation messages with perl 5.6.0 and
+      above. Thanks to Rod Whitby for reporting the .graft-include
+      bug. Thanks also to Peter Bray and Robert Maldon (and many
+      others) for reporting the perl 5.6.0 issue.
+    - Precedence rules for .graft-exclude and .graft-include are now honoured.
+    - Empty top level target directory is no longer removed when using -dD.
+    - Message formats are now normalised. Each type of message has a
+      fixed length tag which can be used by post-processors (none exist,
+      but feel free to write one if you feel you need one). Thanks to
+      Peter Bray for this request.
+    - Implement Peter Bray's suggestion for never grafting specific
+      files and/or directories. List is specified in Makefile.
+    - Removed some intelligence from the Makefile to cope with the brain
+      damaged make shipped with Solaris. Thanks to Peter Bray, Robert
+      Maldon and Jonathan Woolmington for reporting this "bug".
+    - Added license details to man page and documentation.
+    - Added details regarding other similar packages to the
+      documentation. Thanks to Bud Bruegger, Jonathan Abbey and Al Piszcz
+      for providing details regarding these programs.
+    - Added a THOUGHTS files. This outlines potential new ideas for
+      graft and also why older ideas have been rejected. If your idea
+      isn't yet in graft it might be mentioned in THOUGHTS.
+
+Version 2.3 - 7 September 2000
+
+    - Code cleanup. Fixed lots of Perl style issues.
+    - Now uses Perl File::Basename module for basename() and dirname()
+      instead of internal routines.
+    - Removed a bunch of other internal routines that are no longer
+      needed.
+    - Makefile now allows setting of pruned file suffix.
+    - Makefile now allows using a different location of perl to build
+      the graft executable.
+    - Documentation is installed 644 to avoid re-installation
+      problems.
+    - Added Robert Maldon's patches to implement graft include mechanism.
+    - .graft-exclude now handles directories too.
+    - Lots of HTML style cleanups in the doco.
+    - Updated doco for new changes.
+    - Now including a PDF version of the doco.
+    - Now released under the GPL.
+
+Version 2.2 - 18 November 1997
+
+    - Removed graft_it.pl from contrib. Michael won't be supporting it
+      and it's not required now that version graft 2.x is available.
+    - removed deprecated "$#rcsid" in favour of "scalar @rcsid"
+    - added -u option to override superuser privileges
+    - reinstated failure on bad options - &getopts returns NULL for
+      unknown options
+    - Makefile now installs documentation
+    - updated documentation - fixed a couple of errors, added
+      "Availability" section, updated references for 2.2.
+
+Version 2.1 - 11 November 1997
+
+    - Major modifications
+    - uses "-w" perl command line option and "use strict" to enforce
+      perl 5 usage conventions. Can no longer use perl 4. This seems
+      to fix problem with segmentation violations when running graft
+      under perl 5.004.
+    - no longer uses config file
+    - default package installation and graft target directories
+      hard coded from values specified in Makefile
+    - actual package installation directory can be overridden on command
+      line using fully qualified path
+    - graft target directory can be overridden on command line using -t
+      option and a fully qualified path
+    - Depot/Stow compatibility mode
+    - prune functionality now incorporated into graft
+    - empty directory deletion and removal of conflicting files during
+      prune now set in Makefile. Defaults can be overridden on command
+      line.
+    - bypass and exclude filenames can be specified in the Makefile.
+    - Actions listed in log file. Conflicts (summary) also listed in
+      log file.
+    - Superuser restrictions now set in Makefile. If superuser is not
+      required, preserve directory permissions option is disabled.
+
+Version 1.10 - 17 June 1997
+
+    - Created this CHANGES file
+    - added prune.pl for easier migration to graft from already
+      installed packages.
+    - added contributed code from Gordon Rowell and Michael
+      O'Sullivan.
+    - can now handle multiple instances of a package provided they
+      have different installation directories - useful for grafting
+      partial packages. See doc/graft.* for more details.
+    - added archive and dist targets in Makefile
+
+Version 1.9 - 7 April 1997
+
+    - changed Uninstalling message
+    - added failure logic to symlinks
+
+Version 1.8 - 20 March 1997
+
+    - variables used in greps have non alphanumerics escaped with
+      backslashes using escape(). Allows packages such as libg++-2.7.2
+      to be interpreted as expected instead of seeing the + characters
+      as part of a regexp.
+
+Version 1.7 - 19 March 1997
+
+    - added check to die if symlinks are not supported
+    - added ".graft-exclude" specific file exclusion logic
+    - fixed a couple of minor message errors. No change to
+      functionality but it made the code consistent.
+
+Version 1.6 - 16 December 1996
+
+    - changed exit status so that errors have non zero status
+
+Version 1.5 - 4 December 1996
+
+    - fixed bug in conflict reporting. Error type should have been
+      ERROR for
+          "$target/$file is linked to something other than $location/$file"
+
+Version 1.4 - 13 November 1996
+
+    - added uniq subroutine
+    - files() and directories() now do the right thing with symlinks to
+      directories
+
+Version 1.3 - 8 November 1996
+
+    - "-l" now only lists valid packages
+    - new option "-c" checks config file syntax
+    - new option -c does rigorous checking of config file
+    - directories are not stat()ed until installation time
+    - normalised error messages by using message()
+
+Version 1.2 - 24 October 1996
+
+    - added ".nograft" bypass logic
+
+Version 1.1 - 17 October 1996
+
+    - Initial version

@@ -1,0 +1,334 @@
+###########################################################################
+#
+# $Id: Makefile.dist,v 2.16 2018/04/16 14:59:59 psamuel Exp $
+#
+# Graft Makefile
+#
+###########################################################################
+#
+# Version number. Don't change this.
+
+VERSION		= 2.16
+
+###########################################################################
+#
+# User configurable options. Don't put any whitespace after the values.
+# GNU make seems to pick up the whitespace as part of the value and
+# this will put incorrect values into the generated files.
+
+# The default package installation and target directories. For your
+# particular environment you will set the PACKAGEDIR to the directory
+# in which you'll be installing packages and the TARGETDIR to the
+# directory in which you'll be grafting those packages. For example, if
+# you will be installing packages in /pkgs and grafting them into
+# /usr/local, set the variables as:
+#
+#	PACKAGEDIR	= /pkgs
+#	TARGETDIR	= /usr/local
+#
+# These values can be overridden on the command line in a
+# number of ways. See the man page and the documentation in
+# doc/graft.{html,pdf,txt}.
+
+PACKAGEDIR	= /usr/local/pkgs
+TARGETDIR	= /usr/local
+
+# You should only need to change the value of TOP to reflect the
+# installation directory for graft if it is different from your default
+# package installation directory as specified by PACKAGEDIR above. The
+# other directories should be relative to TOP. If you want to change
+# these values, you may be confused about what graft is for. Please
+# re-read the documentation in doc/graft.{html,pdf,txt}.
+
+TOP		= $(PACKAGEDIR)/graft-$(VERSION)
+BIN		= $(TOP)/bin
+MAN		= $(TOP)/man
+DOC		= $(TOP)/doc
+
+# The final grafted location of perl. See the bootstrap section in
+# the documentation in doc/graft.{html,pdf,txt}. This value will be
+# patched into the graft executable. So if you set
+#
+#	PERL	= /usr/bin/perl
+#
+# then the first line of the graft executable will be
+#
+#	#!/usr/bin/perl -w
+
+PERL		= /usr/bin/perl
+
+# The location of the perl executable used to build the graft
+# executable. You'll need to change this only if you do not have a fixed
+# location for the perl executable and you plan on grafting in your
+# own version of perl. See the bootstrap section in the documentation
+# in doc/graft.{html,pdf,txt}.
+
+BUILDPERL	= $(PERL)
+
+# The graft log file. All of graft's actions will be logged in this file.
+# If you don't want any logging, set this to /dev/null. Note that the log
+# file directory must exist prior to running graft. This is especially true
+# when using graft's -r rootdir option.
+
+LOGFILE		= /var/log/graft
+
+# The names of the special graft control files. GRAFT-IGNORE controls the
+# exclusion of subdirectories, GRAFT-EXCLUDE controls the exclusion of
+# individual files and/or directories, GRAFT-INCLUDE controls the inclusion
+# of individual files and/or directories and GRAFT-CONFIG controls the
+# handling of system configuration files. The files are listed here in
+# decending order of precedence.
+
+GRAFT-IGNORE	= .nograft
+GRAFT-EXCLUDE	= .graft-exclude
+GRAFT-INCLUDE	= .graft-include
+GRAFT-CONFIG	= .graft-config
+
+# The names of files and/or directories that graft may automatically
+# ignore. Typically these are directories containing files that should
+# never be grafted. Examples include source code repository directories
+# such as CVS, RCS and SCCS or lock files. There should only be whitespace
+# between the filenames. Wildcards are not supported. For example
+#
+# GRAFT-NEVER	= CVS RCS SCCS lib libexec .lock
+#
+# The default implementation ships with an empty value.
+
+GRAFT-NEVER	=
+
+# Should graft always ignore the files and directories specified by the
+# value of GRAFT-NEVER above? If NEVERGRAFT flag is set to 0, graft will
+# only ignore these files and directories if the -C option is specified. If
+# this value is set to 1, graft will always ignore these files and
+# directories unless the -C option is specified. This whole concept is
+# overridden by the presence of the presence of $(GRAFT-IGNORE) or
+# $(GRAFT-INCLUDE) files.
+
+NEVERGRAFT	= 0
+#NEVERGRAFT	= 1
+
+# The suffix used when pruning files. Pruned files will be renamed as
+# file.$(PRUNED-SUFFIX).
+
+PRUNED-SUFFIX	= .pruned
+
+# The suffix used when processing config files. Files in conflict will be
+# copied as file.$(CONFIG-SUFFIX).
+
+CONFIG-SUFFIX	= .new
+
+# Is superuser access required to install/delete/prune packages? If you
+# are installing your own private copy of graft to manage packages in
+# your home directory, set this value to 0. If you're using graft to
+# manage a global set of packages, superuser access should be enabled.
+# If you set SUPERUSER to 1 it can be overridden on the command line with
+# the -u option so that graft can be used by ordinary users to manage their
+# own package repositories.
+
+SUPERUSER	= 1
+#SUPERUSER	= 0
+
+# When graft creates new directories, it can either create them with
+# the superuser's user id and group id with modes 755 or it can preserve
+# the original directories user id, group id and modes. This only
+# applies if SUPERUSER is set to 1 above.
+# 0 for NO, 1 for YES.
+
+PRESERVEPERMS	= 0
+#PRESERVEPERMS	= 1
+
+# When graft deletes symbolic links it may leave target directories
+# empty. Should it remove these directories? When used in prune mode,
+# should graft remove any conflicting objects it finds?
+# 0 for NO, 1 for YES. NO is the safer option.
+
+DELETEOBJECTS	= 0
+#DELETEOBJECTS	= 1
+
+# End of user configurable section. There should be no need to change
+# anything below this point.
+#
+###########################################################################
+
+PROGS		= \
+		graft
+
+MANUALS		= \
+		graft.1
+
+DOCS		= \
+		graft.html	\
+		graft.pdf	\
+		graft.txt
+
+DIST		=						\
+		graft-$(VERSION)/CHANGES			\
+		graft-$(VERSION)/COPYING			\
+		graft-$(VERSION)/Makefile.dist			\
+		graft-$(VERSION)/README				\
+		graft-$(VERSION)/THOUGHTS			\
+		graft-$(VERSION)/contrib/README			\
+		graft-$(VERSION)/contrib/graftBootStrap.sh	\
+		graft-$(VERSION)/control			\
+		graft-$(VERSION)/doc/graft.html			\
+		graft-$(VERSION)/doc/graft.pdf			\
+		graft-$(VERSION)/doc/graft.txt			\
+		graft-$(VERSION)/graft.man			\
+		graft-$(VERSION)/graft.spec.in			\
+		graft-$(VERSION)/graft.pl
+
+RM		= rm -f
+
+# Where will temporary files be created when building RPM or DEB packages?
+
+RPMDIR		= /tmp/graft-$(VERSION)
+DEBDIR		= /tmp/graft-$(VERSION)
+
+###########################################################################
+
+all:		Makefile $(PROGS) $(MANUALS)
+
+clean:
+		$(RM) $(PROGS) $(MANUALS) *.rpm *.deb *.spec *.pdf
+
+manuals:	$(MANUALS)
+		for i in $(MANUALS);					\
+		do							\
+		    manpage=`basename $$i`;				\
+		    man=`expr $$i : '.*\.\(.\)'`;			\
+		    mkdir -p $(MAN)/man$$man;				\
+		    cp $$i $(MAN)/man$$man/$$manpage;			\
+		    chmod 644 $(MAN)/man$$man/$$manpage;		\
+		done
+
+docs:
+		for i in $(DOCS);			\
+		do					\
+		    mkdir -p $(DOC);			\
+		    cp doc/$$i $(DOC);			\
+		    chmod 644 $(DOC)/$$i;		\
+		    touch $(DOC)/$(GRAFT-IGNORE);	\
+		done
+
+bin:		all
+		@mkdir -p $(BIN)
+		cp $(PROGS) $(BIN)
+
+install:	bin manuals docs
+
+archive:
+		@$(RM) ../graft-$(VERSION).tar ../graft-$(VERSION).tar.gz
+		@cd .. ; tar cvf graft-$(VERSION).tar graft-$(VERSION)
+		@gzip ../graft-$(VERSION).tar
+
+dist:
+		@$(RM) ../graft-$(VERSION).tar ../graft-$(VERSION).tar.gz
+		@cd ..; tar cvf graft-$(VERSION).tar $(DIST)
+		@gzip ../graft-$(VERSION).tar
+
+graft:		graft.pl Makefile
+
+Makefile:	Makefile.dist
+		cp Makefile.dist Makefile
+		chmod 644 Makefile
+		@echo
+		@echo "######################################################"
+		@echo "#                                                    #"
+		@echo "#       You'll now need to modify the Makefile       #"
+		@echo "#      variables to suit your local conditions.      #"
+		@echo "#                                                    #"
+		@echo "######################################################"
+		@echo
+		@false
+
+deb:		Makefile control
+		@rm -rf $(DEBDIR) graft-$(VERSION).deb
+		@mkdir -p $(DEBDIR)/DEBIAN
+		@sed							\
+		    -e 's#xVERSIONx#$(VERSION)#g'			\
+		    control > $(DEBDIR)/DEBIAN/control
+		@$(MAKE)						\
+		    BIN=$(DEBDIR)/usr/bin				\
+		    MAN=$(DEBDIR)/usr/share/man/man1			\
+		    DOC=$(DEBDIR)/usr/share/doc/graft-$(VERSION)	\
+		    install
+		@cd $(DEBDIR)/usr; find . -type f | xargs md5sum > ../DEBIAN/md5sums
+		cd $(DEBDIR)/..; dpkg-deb --build graft-$(VERSION)
+		mv $(DEBDIR).deb .
+		@rm -rf $(DEBDIR)
+
+rpm:		Makefile dist graft.spec
+		@rm -rf $(RPMDIR) graft-$(VERSION)-01.noarch.rpm
+		@for i in BUILD BUILDROOT RPMS SOURCES SPECS SRPMS;	\
+		do							\
+		    mkdir -p $(RPMDIR)/$$i;				\
+		done
+		@cp -p graft.spec $(RPMDIR)/SPECS
+		@cp -p ../graft-$(VERSION).tar.gz $(RPMDIR)/SOURCES
+		rpmbuild						\
+		    --clean						\
+		    --define "%_topdir $(RPMDIR)"			\
+		    --nodeps						\
+		    --root /						\
+		    --target noarch					\
+		    -bb							\
+		    $(RPMDIR)/SPECS/graft.spec
+		cp -p $(RPMDIR)/RPMS/noarch/graft-$(VERSION)-01.noarch.rpm .
+		@rm -rf $(RPMDIR)
+
+% : %.pl
+		$(BUILDPERL) -wc $<
+		sed						\
+		    -e 's#xCONFIG-SUFFIXx#$(CONFIG-SUFFIX)#g'	\
+		    -e 's#xDELETEOBJECTSx#$(DELETEOBJECTS)#g'	\
+		    -e 's#xGRAFT-CONFIGx#$(GRAFT-CONFIG)#g'	\
+		    -e 's#xGRAFT-EXCLUDEx#$(GRAFT-EXCLUDE)#g'	\
+		    -e 's#xGRAFT-IGNOREx#$(GRAFT-IGNORE)#g'	\
+		    -e 's#xGRAFT-INCLUDEx#$(GRAFT-INCLUDE)#g'	\
+		    -e 's#xGRAFT-NEVERx#$(GRAFT-NEVER)#g'	\
+		    -e 's#xLOGFILEx#$(LOGFILE)#g'		\
+		    -e 's#xNEVERGRAFTx#$(NEVERGRAFT)#g'		\
+		    -e 's#xPACKAGEDIRx#$(PACKAGEDIR)#g'		\
+		    -e 's#xPERLx#$(PERL)#g'			\
+		    -e 's#xPRESERVEPERMSx#$(PRESERVEPERMS)#g'	\
+		    -e 's#xPRUNED-SUFFIXx#$(PRUNED-SUFFIX)#g'	\
+		    -e 's#xSUPERUSERx#$(SUPERUSER)#g'		\
+		    -e 's#xTARGETDIRx#$(TARGETDIR)#g'		\
+		    < $< > $@
+		chmod +x $@
+		$(BUILDPERL) -wc $@
+
+%.1 : %.man
+		if [ -n "$(GRAFT-NEVER)" ];			\
+		then						\
+		    AUTOIGNORE=1;				\
+		else						\
+		    AUTOIGNORE=0;				\
+		fi;						\
+		sed						\
+		    -e "s#xAUTOIGNOREx#$$AUTOIGNORE#g"		\
+		    -e 's#xCONFIG-SUFFIXx#$(CONFIG-SUFFIX)#g'	\
+		    -e 's#xDELETEOBJECTSx#$(DELETEOBJECTS)#g'	\
+		    -e 's#xDOCx#$(DOC)#g'			\
+		    -e 's#xGRAFT-CONFIGx#$(GRAFT-CONFIG)#g'	\
+		    -e 's#xGRAFT-EXCLUDEx#$(GRAFT-EXCLUDE)#g'	\
+		    -e 's#xGRAFT-IGNOREx#$(GRAFT-IGNORE)#g'	\
+		    -e 's#xGRAFT-INCLUDEx#$(GRAFT-INCLUDE)#g'	\
+		    -e 's#xGRAFT-NEVERx#$(GRAFT-NEVER)#g'	\
+		    -e 's#xLOGFILEx#$(LOGFILE)#g'		\
+		    -e 's#xNEVERGRAFTx#$(NEVERGRAFT)#g'		\
+		    -e 's#xPACKAGEDIRx#$(PACKAGEDIR)#g'		\
+		    -e 's#xPERLx#$(PERL)#g'			\
+		    -e 's#xPRESERVEPERMSx#$(PRESERVEPERMS)#g'	\
+		    -e 's#xPRUNED-SUFFIXx#$(PRUNED-SUFFIX)#g'	\
+		    -e 's#xSUPERUSERx#$(SUPERUSER)#g'		\
+		    -e 's#xTARGETDIRx#$(TARGETDIR)#g'		\
+		    -e 's#xVERSIONx#$(VERSION)#g'		\
+		    < $< > $@
+
+
+%.pdf : %.1
+		groff -man -t $< | ps2pdf - $@
+
+%.spec : %.spec.in
+		sed -e 's#xVERSIONx#$(VERSION)#g' < $< > $@

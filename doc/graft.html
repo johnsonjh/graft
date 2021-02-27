@@ -1,0 +1,2510 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<HTML>
+<HEAD>
+  <TITLE>Graft</TITLE>
+  <STYLE type="text/css">
+  div.c1 {text-align: center}
+  </STYLE>
+</HEAD>
+<BODY>
+  <DIV class="c1">
+    <H1><EM>Graft</EM> - a package management utility</H1>
+  </DIV>
+  <H4>Prepared by Peter Samuel <A href=
+  "mailto:peter.r.samuel@gmail.com"><TT>&lt;peter.r.samuel@gmail.com&gt;</TT></A></H4>
+  <H4>$Revision: 2.16 $</H4>
+  <H4>$Date: 2018/04/16 14:54:07 $</H4>
+  <BLOCKQUOTE>
+    <P><EM><STRONG>graft:</STRONG> To insert (a graft) in a branch or stem of
+    another tree; to propagate by insertion in another stock; also, to insert
+    a graft upon. To implant a portion of (living flesh or skin) in a lesion
+    so as to form an organic union. To join (one thing) to another as if by
+    grafting, so as to bring about a close union.</EM></P>
+  </BLOCKQUOTE>
+  <HR>
+  <H2><A name="contents" id="contents">Contents</A></H2>
+  <UL>
+    <LI><A href="#intro">Introduction</A></LI>
+    <LI><A href="#rationale">Rationale</A></LI>
+    <LI><A href="#research">Research</A></LI>
+    <LI>
+      <A href="#design">Design</A>
+      <UL>
+        <LI><A href="#precedence">Control file precedence &amp; conflict
+        resolution</A></LI>
+      </UL>
+    </LI>
+    <LI><A href="#history">History</A></LI>
+    <LI>
+      <A href="#installation">Installation</A>
+      <UL>
+        <LI><A href="#rpm_and_deb">Creating RPM and DEB packages</A></LI>
+        <LI><A href="#gotchas">Grafting <EM>Graft</EM> and <EM>Perl</EM> -
+        the bootstrap problem</A></LI>
+      </UL>
+    </LI>
+    <LI>
+      <A href="#using-graft">Using <EM>Graft</EM></A>
+      <UL>
+        <LI><A href="#compiling-packages">Compiling Packages</A></LI>
+        <LI>
+          <A href="#usage"><EM>Graft</EM> command line options</A>
+          <OL>
+            <LI><A href="#graft-i">Install</A></LI>
+            <LI><A href="#graft-d">Delete</A></LI>
+            <LI><A href="#graft-p">Prune</A></LI>
+            <LI><A href="#graft-L">Information</A></LI>
+          </OL>
+        </LI>
+        <LI><A href="#testing">Testing the <EM>Graft</EM>
+        Installation</A></LI>
+        <LI><A href="#installing-packages">Installing Packages</A></LI>
+        <LI><A href="#bypass">Bypassing package directories</A></LI>
+        <LI><A href="#include">Including specific files and/or
+        directories</A></LI>
+        <LI><A href="#exclude">Excluding specific files and/or
+        directories</A></LI>
+        <LI><A href="#config_dirs">Grafting configuration files</A></LI>
+        <LI><A href="#partial-graft">Grafting part of a package</A></LI>
+        <LI><A href="#deleting-packages">Deleting and/or Upgrading
+        Packages</A></LI>
+        <LI><A href="#transitioning">Transitioning a package to
+        <EM>Graft</EM> control</A></LI>
+        <LI><A href="#conflicts">Conflict Processing</A></LI>
+        <LI><A href="#exitstatus">Exit Status</A></LI>
+      </UL>
+    </LI>
+    <LI><A href="#other-pkg-tools">Using <EM>Graft</EM> with other package
+    management tools</A></LI>
+    <LI><A href="#availability">Availability</A></LI>
+    <LI><A href="#license">License</A></LI>
+  </UL>
+  <HR>
+  <H2><A name="intro" id="intro">Introduction</A></H2>
+  <P><EM>Graft</EM> provides a mechanism for managing multiple packages under
+  a single directory hierarchy. It was inspired by both <EM>Depot</EM>
+  (Carnegie Mellon University) and <EM>Stow</EM> (Bob Glickstein).</P>
+  <P>For the purposes of this discussion a <EM>package</EM> is defined as a
+  suite of programs and files that make up an individual product. For
+  example, the <EM>package</EM> known as <EM>gcc</EM> consists of the
+  compiler and preprocessor programs, include files, manual pages and any
+  other associated file or program. The concept of a <EM>package</EM> should
+  not be confused with some vendor's definitions that are - by this
+  definition - actually collections of <EM>packages</EM>.</P>
+  <P>Special thanks to Gordon Rowell, Charles Butcher, Charlie Brady, Robert
+  Maldon and Matias A. Fonzo for design suggestions and contributions.</P>
+  <HR>
+  <H2><A name="rationale" id="rationale">Rationale</A></H2>
+  <P>In any reasonably large environment, many software packages will be
+  installed. The installation location for these packages usually follows one
+  of three rationales - each with its own advantages and drawbacks:</P>
+  <OL>
+    <LI>
+      <P>Each package is isolated from all other packages by installing it
+      into a self contained directory tree. All binaries, manual pages,
+      library and configuration files are stored under a single directory
+      tree. This directory tree contains NO other files which are not the
+      exclusive domain of the package in question.</P>
+      <P>This method makes package demarcation obvious. As each package is
+      self contained, identification of any file within a package is
+      immediately apparent.</P>
+      <P>Multiple versions of packages can be installed fairly easily to
+      accommodate acceptance testing of new versions and/or legacy
+      systems.</P>
+      <P>However, the use of individual package directories can lead to VERY
+      long <STRONG>$PATH</STRONG> and <STRONG>$MANPATH</STRONG> environment
+      variables. Some shells may not be able to handle such long variables.
+      Whenever a new package is added, each user MUST update their
+      <STRONG>$PATH</STRONG> and <STRONG>$MANPATH</STRONG> to make the
+      package available.</P>
+    </LI>
+    <LI>
+      <P>Packages are installed under a common directory tree. Binaries for
+      all packages are grouped in a single directory, manual pages for all
+      packages in another directory and so on.</P>
+      <P>This method eliminates the need for continually updating long
+      <STRONG>$PATH</STRONG> variables for each user. As soon as a package is
+      placed into the common '<TT>bin</TT>' directory it is immediately
+      available to all users (after a shell rehash if necessary).</P>
+      <P>However, when a package is to be updated it is often very difficult
+      to isolate all the files related to a particular package if they are
+      intermingled with unrelated files.</P>
+    </LI>
+    <LI>
+      <P>A combination of methods (1) and (2).</P>
+    </LI>
+  </OL>
+  <P>In an effort to maximise the advantages and minimise the disadvantages,
+  <EM>Depot</EM>, <EM>Stow</EM> and <EM>Graft</EM> adopt a similar
+  philosophy:</P>
+  <BLOCKQUOTE>
+    <P>Packages are installed in self contained directory trees and symbolic
+    links from a common area are made to the package files.</P>
+  </BLOCKQUOTE>
+  <P>This approach allows multiple versions of the same package to co-exist
+  on the one system. One version is the commonly available version and
+  symbolic links will be made to this version. New versions can be tested and
+  once acceptable can replace the current commonly available version. Older
+  versions can still be used for legacy systems by using the '<EM>real</EM>'
+  path name to the package instead of the '<EM>common</EM>' path name.</P>
+  <P>The size and complexity of environment variables such as
+  <STRONG>$PATH</STRONG> and <STRONG>$MANPATH</STRONG> is minimised because
+  only the common area is required. Any special cases can also be
+  accommodated but these will usually be in the minority when compared with
+  the number of commonly available packages.</P>
+  <HR>
+  <H2><A name="research" id="research">Research</A></H2>
+  <P><STRONG>Note:</STRONG> Development of <EM>Graft</EM> began in late 1996.
+  The comments regarding the packages listed below reflect their
+  functionality and behaviour at that time and may not necessarily reflect
+  their current functionality and behaviour.</P>
+  <P>As stated earlier, <EM>Graft</EM> was inspired by <EM>Depot</EM> and
+  <EM>Stow</EM>. Both these systems were examined and finally rejected for
+  the following reasons:</P>
+  <DL>
+    <DT><EM>Depot</EM> <A href=
+    "ftp://ftp.andrew.cmu.edu/pub/depot/depot.tar.gz">ftp://ftp.andrew.cmu.edu/pub/depot/depot.tar.gz</A></DT>
+    <DD>
+      <P><EM>Depot</EM> is very flexible yet cumbersome.</P>
+      <P>It requires a database file to be created which provides a snapshot
+      of the current state of both the package repository and the
+      <EM>Depot</EM> target. It is possible to inadvertently destroy the
+      package repository if the database is damaged.</P>
+      <P><EM>Depot</EM> assumes "<EM>ownership</EM>" of the target area,
+      making it almost impossible to accommodate packages that are not under
+      the control of <EM>Depot</EM>. ("<EM>Ownership</EM>" in this case means
+      that <EM>Depot</EM> assumes ALL files in the target area will be under
+      the control of <EM>Depot</EM>. It does not imply that <EM>Depot</EM>
+      modifies Unix file permissions).</P>
+      <P>Because of <EM>Depot</EM>'s assumed <EM>ownership</EM> it is
+      difficult for other packages not under the control of <EM>Depot</EM> to
+      be placed in the same target area.</P>
+      <P><EM>Depot</EM> attempts to impose a fixed package repository
+      relative to the package target. It assumes that all packages will be
+      stored under '<TT><EM>dir</EM>/depot/<EM>package</EM></TT>' and the
+      target will be '<TT><EM>dir</EM></TT>'. This can be overridden on the
+      command line but the internals of <EM>Depot</EM> make this mechanism
+      cumbersome.</P>
+      <P><EM>Depot</EM> is written in C and there are many source files in
+      its distribution. Local modifications would be difficult to quickly
+      implement and test.</P>
+    </DD>
+    <DT><EM>Stow</EM> <A href=
+    "https://www.gnu.org/software/stow/">https://www.gnu.org/software/stow/</A></DT>
+    <DD>
+      <P><EM>Stow</EM> is a stateless system. It requires no database or
+      configuration information.</P>
+      <P>Like <EM>Depot</EM>, it assumes that the package repository will be
+      stored under '<TT><EM>dir</EM>/stow/<EM>package</EM></TT>' and the
+      target will be '<TT><EM>dir</EM></TT>'. This can be overridden on the
+      command line and works well during the install phase.</P>
+      <P><EM>Stow</EM> assumes "<EM>ownership</EM>" of the target area,
+      making it difficult to accommodate packages that are not under the
+      control of <EM>Stow</EM>. ("<EM>Ownership</EM>" in this case means that
+      <EM>Stow</EM> assumes ALL files in the target area will be under the
+      control of <EM>Stow</EM>. It does not imply that <EM>Stow</EM> modifies
+      Unix file permissions).</P>
+      <P>Because of <EM>Stow</EM>'s assumed <EM>ownership</EM> it is
+      difficult for other packages not under the control of <EM>Stow</EM> to
+      be placed in the same target area. When deleting packages,
+      <EM>Stow</EM> examines everything in the target directory - whether it
+      is associated with the package it is trying to delete or not. This can
+      be time consuming and potentially dangerous as empty directories are
+      also removed - even empty directories that do not belong to the package
+      being removed.</P>
+      <P><EM>Stow</EM> has a clever feature of <EM>folding</EM> and
+      <EM>unfolding</EM> directories. It attempts to optimise the number of
+      symbolic links by making links to directories if the directory is only
+      associated with a single package. If at a later date <EM>Stow</EM>
+      discovers another package that needs that directory it will
+      <EM>unfold</EM> that directory into a collection of symbolic links to
+      files rather than a single symbolic link to the directory.
+      <EM>Stow</EM> will <EM>fold</EM> the directory when removing packages
+      if the remainder of the directory is only concerned with a single
+      package. While clever, this feature is probably a waste of time and
+      effort. It means that the entire package target must be scanned to
+      determine package ownership of links and as packages will usually be
+      replaced by newer versions a directory <EM>fold</EM> will probably be
+      short lived.</P>
+      <P><EM>Stow</EM> will sometimes miss potential conflicts when run in
+      <EM>show only</EM> mode. The conflicts may occur when a directory is
+      unfolded and will not show up in <EM>show only</EM> mode.</P>
+      <P><EM>Stow</EM>'s author suggests that packages be compiled such that
+      they refer to files in the target location rather than the actual
+      package installation directory. This approach precludes the use of
+      multiple versions of packages with different configuration and/or
+      library files.</P>
+      <P><EM>Stow</EM> is written in <EM>Perl</EM> and is only a few hundred
+      lines of code so local modifications can be accommodated. However there
+      are very few comments in the code which makes the process of
+      modification difficult.</P>
+    </DD>
+  </DL>
+  <P>Since the release of <EM>Graft</EM> 1.6, the existence of yet another
+  packaging program has been brought to the author's attention.</P>
+  <DL>
+    <DT><EM>Encap</EM> <A href=
+    "http://www.ks.uiuc.edu/Development/Computers/docs/sysadmin/Build/encap.html">
+    http://www.ks.uiuc.edu/Development/Computers/docs/sysadmin/Build/encap.html</A></DT>
+    <DD>
+      <P><EM>Encap</EM> grew out of work begun at the University of Illinois
+      Champaign-Urbana. It has the same underlying philosophy as
+      <EM>Depot</EM>, <EM>Stow</EM> and <EM>Graft</EM> - encapsulate packages
+      into self contained directories and use symbolic links to make them
+      visible in a common location.</P>
+      <P><EM>Encap</EM> uses a combination of a <EM>csh</EM> wrapper and a
+      <EM>Perl</EM> program to accomplish its work. Like both <EM>Depot</EM>
+      and <EM>Stow</EM>, <EM>Encap</EM> assumes that all compiled packages
+      will live under a single directory hierarchy - by default
+      '<TT><EM>dir</EM>/encap/<EM>package</EM></TT>'. It then attempts to
+      create a symbolic link tree for ALL the packages under this area. There
+      doesn't appear to be any easy way to support the quick addition or
+      removal of a single package.</P>
+      <P>A new release of <EM>Encap</EM> incorporating many new features was
+      expected to be available in early 1997, however no release greater than
+      version 1.2 has been forthcoming.</P>
+      <P>One good feature of <EM>Encap</EM> is the ability to exclude
+      specific files from the package tree. This concept has been
+      incorporated into <EM>Graft</EM> 1.7 and above.</P>
+    </DD>
+  </DL>
+  <P>Since the release of <EM>Graft</EM> 2.3, the existence of several
+  another packaging programs have been brought to the author's attention.
+  Rather than outline their features and whether or not the author feels they
+  are superior (or inferior) to <EM>Graft</EM>, a reference to each package
+  and a brief description is given and further research is left as an
+  exercise for the reader:</P>
+  <DL>
+    <DT><EM>stowES</EM></DT>
+    <DD>
+      <PRE>
+<A href=
+"https://os.inf.tu-dresden.de/~adam/stowES/">https://os.inf.tu-dresden.de/~adam/stowES/</A>
+</PRE>
+      <P>"<EM>stowES (stow Enhancement Script) is a Perl script which tries
+      to ease the use of the "stow" packaging program and software which can
+      be compiled and installed with autoconf. It automates the compilation
+      and installation of software packages and provides some useful
+      functions to maintain your stow packages (e.g., list packages, check
+      packages for integrity, etc.).</EM>"</P>
+    </DD>
+    <DT><EM>opt_depot</EM></DT>
+    <DD>
+      <PRE>
+<A href=
+"https://github.com/jonabbey/opt_depot">https://github.com/jonabbey/opt_depot</A>
+</PRE>
+      <P>"<EM>opt_depot is a suite of Perl scripts which makes it easy to
+      manage installed software across a wide range of client systems.
+      opt_depot makes it possible to keep all files associated with a program
+      together in one directory, so installation and de-installation is
+      simple. opt_depot is easy to manage, and provides a scheme for
+      installing software in a truly portable fashion; packages may be
+      installed locally on client systems, or kept in a central package
+      archive for NFS access.</EM> "</P>
+      <P>This site also has links to several other package management
+      utilities, including <EM>Graft</EM>.</P>
+    </DD>
+    <DT><EM>relink</EM></DT>
+    <DD>
+      <PRE>
+<A href=
+"http://sourceforge.net/projects/relink/">http://sourceforge.net/projects/relink/</A>
+</PRE>
+      <P>"<EM>relink is a package management tool for organization and
+      management of software packages. It should run on any UNIX platform
+      that runs PERL. Similar tools include: rpm(REDHAT/Mandrake),
+      pkgadd(Slackware/SUN), stow(GNU) and depot(CMU)</EM>"</P>
+    </DD>
+    <DT><EM>univSrcPkg</EM></DT>
+    <DD>
+      <PRE>
+<A href=
+"http://freecode.com/articles/the-universal-source-package">http://freecode.com/articles/the-universal-source-package</A>
+</PRE>
+      <P><A href="mailto:bud@sistema.it">Bud Bruegger</A> has written a brief
+      paper outlining his thoughts on a "<EM>Universal Source Package</EM>"
+      solution.</P>
+      <P>This site also has links to other package management programs and
+      similar items of interest.</P>
+    </DD>
+  </DL>
+  <HR>
+  <H2><A name="design" id="design">Design</A></H2>
+  <P>This brings us to <EM>Graft</EM>. <EM>Graft</EM> has been designed to
+  use the best features of <EM>Depot</EM>, <EM>Stow</EM> and <EM>Encap</EM>
+  while maintaining as simple a mechanism as possible. The principles of
+  <EM>Graft</EM> are:</P>
+  <UL>
+    <LI>
+      <P><EM>Graft</EM> will allow packages to be <EM>grafted</EM> from any
+      directory to any other directory. Default <TT>installation</TT> and
+      <TT>target</TT> directories will be used but can easily be overridden
+      on the command line.</P>
+    </LI>
+    <LI>
+      <P><EM>Graft</EM> will log its actions to a log file. The log file can
+      be specified on the command line. If not specified on the command line
+      a default log file will be used.</P>
+    </LI>
+    <LI>
+      <P><EM>Graft</EM> will NOT create symbolic links to directories. If a
+      directory does not exist in the target tree it will be created (with
+      the same ownership and permissions as the original if desired).</P>
+    </LI>
+    <LI>
+      <P><EM>Graft</EM> will create symbolic links with full pathnames rather
+      than relative pathnames. This allows easy identification of true
+      package locations and facilitates block movement of a target tree
+      without the need for <EM>Graft</EM> deletion and re-installation.</P>
+    </LI>
+    <LI>
+      <P><EM>Graft</EM> will cease installation of a package if a conflict
+      arises. A conflict is defined as one of the following conditions:</P>
+      <UL>
+        <LI>If the package object is a directory and the target object exists
+        but is not a directory.</LI>
+        <LI>If the package object is not a directory and the target object
+        exists and is not a symbolic link.</LI>
+        <LI>If the package object is not a directory and the target object
+        exists and is a symbolic link to something other than the package
+        object.</LI>
+        <LI>If the package directory contains a <TT>.graft-config</TT> file
+        and the target object exists but does not match the 32-bit CRC of the
+        package object.</LI>
+      </UL>
+    </LI>
+    <LI>
+      <P>Installation conflicts will always be reported. Conflicts will be
+      reported to standard error.</P>
+    </LI>
+    <LI>
+      <P><EM>Graft</EM> will attempt to display all possible operations when
+      asked, even when asked not to perform the operations.</P>
+    </LI>
+    <LI>
+      <P><EM>Graft</EM> will not delete directories when uninstalling.
+      <EM>Graft</EM> will print an appropriate message if an empty directory
+      results and leave the deletion for the operator to perform outside the
+      scope of <EM>Graft</EM>'s operations. This ensures that <EM>place
+      holder</EM> directories that may be used by other packages are not
+      inadvertently removed. This feature can be permanently disabled by
+      setting a flag in the <TT>Makefile</TT>. It can also be temporarily
+      disabled using a command line option.</P>
+    </LI>
+    <LI>
+      <P><EM>Graft</EM> will continue to delete the remainder of a package
+      after a conflict arises. This maximises the amount of deletion that can
+      be performed.</P>
+    </LI>
+    <LI>
+      <P>Deletion conflicts will always be reported. Conflicts will be
+      reported to standard error.</P>
+    </LI>
+    <LI>
+      <P><EM>Graft</EM> will only concern itself with files relating to the
+      package at hand. This will allow other packages to be placed in the
+      target area without fear of intervention by <EM>Graft</EM>.</P>
+    </LI>
+    <LI>
+      <P><EM>Graft</EM> will only allow the superuser to install or delete
+      packages. This feature can be permanently disabled by setting a flag in
+      the <TT>Makefile</TT> or it may be overridden by a command line
+      option.</P>
+    </LI>
+    <LI>
+      <P>If the file <TT>.nograft</TT> exists in any package directory,
+      <EM>Graft</EM> will bypass that directory and any subdirectories during
+      installation. The name of this file is specified in the
+      <TT>Makefile</TT>.</P>
+    </LI>
+    <LI>
+      <P>When installing a directory tree, if the file
+      <TT>.graft-exclude</TT> exists in any package directory, <EM>Graft</EM>
+      will assume that the file contains a list of file and/or directory
+      names - one per line - which correspond to files and/or directories in
+      the directory containing the <TT>.graft-exclude</TT> file. These files
+      and/or directories will NOT be <EM>grafted</EM>. The name of this file
+      is specified in the <TT>Makefile</TT>.</P>
+      <P>The <TT>.nograft</TT> file takes priority over the
+      <TT>.graft-exclude</TT> file.</P>
+    </LI>
+    <LI>
+      <P>When installing a directory tree, if the file
+      <TT>.graft-include</TT> exists in any package directory, <EM>Graft</EM>
+      will assume that the file contains a list of file and/or directory
+      names - one per line - which correspond to files and/or directories in
+      the directory containing the <TT>.graft-include</TT> file. ONLY the
+      files and/or directories listed in the <TT>.graft-include</TT> will be
+      <EM>grafted</EM>. The name of this file is specified in the
+      <TT>Makefile</TT>.</P>
+      <P>The <TT>.graft-exclude</TT> file takes priority over the
+      <TT>.graft-include</TT> file.</P>
+    </LI>
+    <LI>
+      <P>When installing a directory tree, if the file <TT>.graft-config</TT>
+      exists in a package directory, the contents of the directory will be
+      <STRONG>copied</STRONG> to the target directory. If the target files
+      exists and is in conflict with the package file then the package file
+      will be copied into the target directory as
+      <TT>file<EM>.new</EM></TT>.</P>
+      <P>The <TT>.graft-include</TT> file takes priority over the
+      <TT>.graft-config</TT> file.</P>
+    </LI>
+    <LI>
+      <P>If the file <TT>.nograft</TT> exists in any package directory, it
+      will be ignored and <EM>Graft</EM> will continue processing the
+      directory and any subdirectories during deletion.</P>
+    </LI>
+    <LI>
+      <P>If the file <TT>.graft-exclude</TT> exists in any package directory,
+      its contents will be ignored and <EM>Graft</EM> will continue
+      processing the directory and any subdirectories during deletion.</P>
+    </LI>
+    <LI>
+      <P>If the file <TT>.graft-include</TT> exists in any package directory,
+      its contents will be ignored and <EM>Graft</EM> will continue
+      processing the directory and any subdirectories during deletion.</P>
+    </LI>
+    <LI>
+      <P>If the file <TT>.graft-config</TT> exists in any package directory,
+      during deletion matching files in the target directory will not be
+      deleted however any <TT>file<EM>.new</EM></TT> files will be
+      deleted.</P>
+    </LI>
+    <LI>
+      <P>As an aid to transitioning systems to <EM>Graft</EM>, <EM>Graft</EM>
+      will allow conflicting files to be pruned. This pruning can take the
+      form of a file rename or a file removal depending on either a
+      <TT>Makefile</TT> flag or a command line option. If file removal is
+      selected and the file is a non-empty directory, it will be renamed
+      instead.</P>
+    </LI>
+    <LI>
+      <P>If the file <TT>.nograft</TT> exists in any package directory, it
+      will be ignored and <EM>Graft</EM> will continue processing the
+      directory and any subdirectories during pruning.</P>
+    </LI>
+    <LI>
+      <P>If the file <TT>.graft-exclude</TT> exists in any package directory,
+      its contents will be ignored and <EM>Graft</EM> will continue
+      processing the directory and any subdirectories during pruning.</P>
+    </LI>
+    <LI>
+      <P>If the file <TT>.graft-include</TT> exists in any package directory,
+      its contents will be ignored and <EM>Graft</EM> will continue
+      processing the directory and any subdirectories during pruning.</P>
+    </LI>
+    <LI>
+      <P>If the file <TT>.graft-config</TT> exists in any package directory,
+      the files in the directory will be ignored during pruning.
+      Sub-directories will continue to be processed appropriately.</P>
+    </LI>
+  </UL>
+  <H3><A name="precedence" id="precedence">Control file precedence &amp;
+  conflict resolution</A></H3>
+  <P>As stated above, the various <EM>Graft</EM> control files have the
+  following precedence, from highest to lowest:</P>
+  <PRE>
+    .nograft &gt; .graft-exclude &gt; .graft-include &gt; .graft-config
+</PRE>
+  <P>The following table summarises the activities of <EM>Graft</EM> when
+  various control files are present:</P>
+  <DIV class="c1">
+    <TABLE summary="Control File Precedence" border="2" cellpadding="3">
+      <TR>
+        <TH colspan="5">Install</TH>
+      </TR>
+      <TR>
+        <TH><EM>Target</EM></TH>
+        <TH><EM>.nograft</EM></TH>
+        <TH><EM>.graft-exclude</EM></TH>
+        <TH><EM>.graft-include</EM></TH>
+        <TH><EM>.graft-config</EM></TH>
+      </TR>
+      <TR>
+        <TD>does not exist</TD>
+        <TD>IGNORE</TD>
+        <TD>IGNORE</TD>
+        <TD>SYMLINK</TD>
+        <TD>COPY</TD>
+      </TR>
+      <TR>
+        <TD>symlink to source</TD>
+        <TD>IGNORE</TD>
+        <TD>IGNORE</TD>
+        <TD>NOP</TD>
+        <TD>DELETE &amp; COPY</TD>
+      </TR>
+      <TR>
+        <TD>symlink to other</TD>
+        <TD>IGNORE</TD>
+        <TD>IGNORE</TD>
+        <TD>CONFLICT</TD>
+        <TD>N/A</TD>
+      </TR>
+      <TR>
+        <TD>symlink to other (crc match)</TD>
+        <TD>N/A</TD>
+        <TD>N/A</TD>
+        <TD>N/A</TD>
+        <TD>NOP</TD>
+      </TR>
+      <TR>
+        <TD>symlink to other (crc diff)</TD>
+        <TD>N/A</TD>
+        <TD>N/A</TD>
+        <TD>N/A</TD>
+        <TD>COPY.new</TD>
+      </TR>
+      <TR>
+        <TD>file</TD>
+        <TD>IGNORE</TD>
+        <TD>IGNORE</TD>
+        <TD>CONFLICT</TD>
+        <TD>N/A</TD>
+      </TR>
+      <TR>
+        <TD>file (crc match)</TD>
+        <TD>N/A</TD>
+        <TD>N/A</TD>
+        <TD>N/A</TD>
+        <TD>NOP</TD>
+      </TR>
+      <TR>
+        <TD>file (crc diff)</TD>
+        <TD>N/A</TD>
+        <TD>N/A</TD>
+        <TD>N/A</TD>
+        <TD>COPY.new</TD>
+      </TR>
+      <TR>
+        <TD>not a file</TD>
+        <TD>IGNORE</TD>
+        <TD>IGNORE</TD>
+        <TD>CONFLICT</TD>
+        <TD>CONFLICT</TD>
+      </TR>
+      <TR>
+        <TH colspan="5">Delete</TH>
+      </TR>
+      <TR>
+        <TH><EM>Target</EM></TH>
+        <TH><EM>.nograft</EM></TH>
+        <TH><EM>.graft-exclude</EM></TH>
+        <TH><EM>.graft-include</EM></TH>
+        <TH><EM>.graft-config</EM></TH>
+      </TR>
+      <TR>
+        <TD>does not exist</TD>
+        <TD>NOP</TD>
+        <TD>NOP</TD>
+        <TD>NOP</TD>
+        <TD>NOP</TD>
+      </TR>
+      <TR>
+        <TD>symlink to source</TD>
+        <TD>DELETE</TD>
+        <TD>DELETE</TD>
+        <TD>DELETE</TD>
+        <TD>DELETE &amp; DELETE.new</TD>
+      </TR>
+      <TR>
+        <TD>symlink to other</TD>
+        <TD>CONFLICT</TD>
+        <TD>CONFLICT</TD>
+        <TD>CONFLICT</TD>
+        <TD>N/A</TD>
+      </TR>
+      <TR>
+        <TD>symlink to other (crc match)</TD>
+        <TD>N/A</TD>
+        <TD>N/A</TD>
+        <TD>N/A</TD>
+        <TD>DELETE.new</TD>
+      </TR>
+      <TR>
+        <TD>symlink to other (crc diff)</TD>
+        <TD>N/A</TD>
+        <TD>N/A</TD>
+        <TD>N/A</TD>
+        <TD>NOP</TD>
+      </TR>
+      <TR>
+        <TD>file</TD>
+        <TD>NOTE</TD>
+        <TD>NOTE</TD>
+        <TD>CONFLICT</TD>
+        <TD>N/A</TD>
+      </TR>
+      <TR>
+        <TD>file (crc match)</TD>
+        <TD>N/A</TD>
+        <TD>N/A</TD>
+        <TD>N/A</TD>
+        <TD>DELETE.new</TD>
+      </TR>
+      <TR>
+        <TD>file (crc diff)</TD>
+        <TD>N/A</TD>
+        <TD>N/A</TD>
+        <TD>N/A</TD>
+        <TD>NOP</TD>
+      </TR>
+      <TR>
+        <TD>not a file</TD>
+        <TD>CONFLICT</TD>
+        <TD>CONFLICT</TD>
+        <TD>CONFLICT</TD>
+        <TD>CONFLICT</TD>
+      </TR>
+      <TR>
+        <TH colspan="5">Prune</TH>
+      </TR>
+      <TR>
+        <TH><EM>Target</EM></TH>
+        <TH><EM>.nograft</EM></TH>
+        <TH><EM>.graft-exclude</EM></TH>
+        <TH><EM>.graft-include</EM></TH>
+        <TH><EM>.graft-config</EM></TH>
+      </TR>
+      <TR>
+        <TD>does not exist</TD>
+        <TD>NOP</TD>
+        <TD>NOP</TD>
+        <TD>NOP</TD>
+        <TD>N/A</TD>
+      </TR>
+      <TR>
+        <TD>symlink to source</TD>
+        <TD>NOP</TD>
+        <TD>NOP</TD>
+        <TD>NOP</TD>
+        <TD>N/A</TD>
+      </TR>
+      <TR>
+        <TD>symlink to other</TD>
+        <TD>PRUNE</TD>
+        <TD>PRUNE</TD>
+        <TD>PRUNE</TD>
+        <TD>N/A</TD>
+      </TR>
+      <TR>
+        <TD>file</TD>
+        <TD>PRUNE</TD>
+        <TD>PRUNE</TD>
+        <TD>PRUNE</TD>
+        <TD>N/A</TD>
+      </TR>
+      <TR>
+        <TD>not a file</TD>
+        <TD>PRUNE</TD>
+        <TD>PRUNE</TD>
+        <TD>PRUNE</TD>
+        <TD>N/A</TD>
+      </TR>
+    </TABLE>
+  </DIV>
+  <HR>
+  <H2><A name="history" id="history">History</A></H2>
+  <P>Development on <EM>Graft</EM> began in October 1996. The initial design
+  used a configuration file to map the installed location of each package to
+  its target directory (that is the directory in which the symbolic links
+  would be created). Work proceeded at a regular pace and by November 1997
+  <EM>Graft</EM> version <EM>2.1</EM> was released. In this, and all
+  subsequent versions, the configuration file had been removed in favour of
+  using default source and target directories.</P>
+  <P>No further work was performed until September 2000 when the concept of
+  bypassing or including files and directories using <TT>.nograft</TT> or
+  <TT>.graft-include</TT> files was introduced in <EM>Graft</EM> version
+  <EM>2.3</EM>.</P>
+  <P>Again nothing changed until February 2002 when Rod Whitby identified a
+  bug in the handling of <TT>.graft-include</TT> files. Several other users
+  (Peter Bray, Robert Maldon and others) also reported some deprecation
+  warnings when using <EM>Graft</EM> with <EM>Perl</EM> version
+  <EM>5.6.0</EM>. <EM>Graft</EM> version <EM>2.4</EM> was the end of
+  <EM>Graft</EM> development for over a decade.</P>
+  <P>In May 2015 Matias A. Fonzo contacted the author wishing to use
+  <EM>Graft</EM> in the <A href="http://www.dragora.org/">Dragora
+  GNU/Linux</A> distribution. Matias' usage of <EM>Graft</EM> lead to
+  <EM>Graft</EM> version <EM>2.5</EM> in June 2015 whereby the <TT>-P</TT>
+  command line option was silently ignored if the effective user was not
+  root.</P>
+  <P>Since the release of <EM>Graft</EM> version <EM>2.4</EM> the author's
+  <EM>Perl</EM> code had improved somewhat so <EM>Graft</EM> version
+  <EM>2.6</EM> released in July 2015 represented a major clean up of coding
+  style and internals. No new behaviours or features were added to the
+  <EM>2.6</EM> release.</P>
+  <P>Matias made some more suggestions and improvements up to and including
+  <EM>Graft</EM> version <EM>2.16</EM> in April 2018. These changes added the
+  <TT>.graft-config</TT> control file, the <TT>-r /rootdir</TT> option for
+  specifying a new root directory, the <TT>-L</TT> option for displaying
+  default locations as well as introducing some tighter controls on the
+  messages and exit status of <EM>Graft</EM> under various conditions.</P>
+  <HR>
+  <H2><A name="installation" id="installation">Installation</A></H2>
+  <P>Before installing <EM>Graft</EM> you'll need <EM>Perl</EM> 5.<EM>x</EM>.
+  <EM>Graft</EM> version 2.<EM>x</EM> requires features only available with
+  <EM>Perl</EM> 5.<EM>x</EM> and will not run with <EM>Perl</EM>
+  4.<EM>x</EM>.</P>
+  <P>Your operating system and its file system(s) should also support
+  symbolic links. If you can't make symbolic links then you can't use
+  <EM>Graft</EM>! <EM>Graft</EM> will exit gracefully if your version of
+  <EM>Perl</EM> does not support symbolic links. It will also exit gracefully
+  if you attempt to <EM>graft</EM> a package into a file system that does not
+  support symbolic links - from a Linux <TT>ext4</TT> file system into an
+  <TT>vfat</TT> file system for example.</P>
+  <P><EM>Graft</EM> has been written to ensure it uses <EM>Perl</EM> modules
+  that are considered part of the core <EM>Perl</EM> distribution. However it
+  may be possible that you're using a home grown installation of
+  <EM>Perl</EM> or some distribution that doesn't have the same <EM>Perl</EM>
+  modules as the author's development environment.</P>
+  <P>If this is the case you'll see compile failures for the following
+  modules if they are unavailable:</P>
+  <PRE>
+   File::Basename
+   Getopt::Long
+</PRE>
+  <P>You will not be able to install <EM>Graft</EM> until these modules are
+  available.</P>
+  <P>You may also see run-time failures when using <EM>Graft</EM> with
+  <TT>.graft-config</TT> files if the following modules are unavailable:</P>
+  <PRE>
+   Compress::Raw::Zlib    (<EM>used in install and delete modes</EM>)
+   File::Copy             (<EM>only used in install mode</EM>)
+</PRE>
+  <P>If you don't have these modules and you do not intend to use
+  <TT>.graft-config</TT> files then you can continue to use <EM>Graft</EM>
+  without issue.</P>
+  <P>Follow these instructions to install <EM>Graft</EM>:</P>
+  <OL>
+    <LI>
+      <P>Unpack the gzipped <EM>Graft</EM> distribution:</P>
+      <PRE>
+    gunzip -c graft-2.16.tar.gz | tar xvf -
+</PRE>
+    </LI>
+    <LI>
+      <P>change directories to the <EM>Graft</EM> distribution directory:</P>
+      <PRE>
+    cd graft-2.16
+</PRE>
+    </LI>
+    <LI>
+      <P>Create an writable version of the <TT>Makefile</TT> by running the
+      command</P>
+      <PRE>
+    make -f Makefile.dist
+</PRE>
+      <P>You'll see output similar to</P>
+      <PRE>
+    cp Makefile.dist Makefile
+    chmod 644 Makefile
+
+    ######################################################
+    #                                                    #
+    #       You'll now need to modify the Makefile       #
+    #      variables to suit your local conditions.      #
+    #                                                    #
+    ######################################################
+
+    make: *** [Makefile] Error 1
+</PRE>
+      <P>You can ignore the error message. That is just there to prevent the
+      creation of the <EM>graft</EM> executable before you've made your site
+      specific configurations to the <TT>Makefile</TT>.</P>
+    </LI>
+    <LI>
+      <P>Edit the <TT>Makefile</TT>. The following variables should be
+      modified to suit your local requirements:</P>
+      <DL>
+        <DD>
+          <PRE>
+<STRONG>PACKAGEDIR</STRONG>     = /usr/local/pkgs
+<STRONG>TARGETDIR</STRONG>      = /usr/local
+</PRE>
+        </DD>
+        <DD>
+          <P>These two variables control your default package
+          <TT>installation</TT> and <TT>target</TT> directories. Most sites
+          will probably choose to install packages under a common
+          <TT>installation</TT> directory and then <EM>graft</EM> them into a
+          common <TT>target</TT> directory.</P>
+          <P>If no specific <TT>target</TT> directory is given on the command
+          line, <EM>Graft</EM> will use the default value specified by
+          <STRONG>TARGETDIR</STRONG>. If a <TT>target</TT> directory is given
+          on the command line but is not fully qualified, the value specified
+          by <STRONG>TARGETDIR</STRONG> will be prepended to the command line
+          argument.</P>
+          <P>Package names provided to <EM>Graft</EM> that are not fully
+          qualified will have the value specified by
+          <STRONG>PACKAGEDIR</STRONG> prepended to the command line
+          arguments.</P>
+        </DD>
+        <DD>
+          <PRE>
+<STRONG>TOP</STRONG>            = $(PACKAGEDIR)/graft-$(VERSION)
+<STRONG>BIN</STRONG>            = $(TOP)/bin
+<STRONG>MAN</STRONG>            = $(TOP)/man
+<STRONG>DOC</STRONG>            = $(TOP)/doc
+</PRE>
+        </DD>
+        <DD>
+          <P>There should be no need to modify these values unless you wish
+          to install <EM>Graft</EM> into a directory that is different from
+          your default package installation directory. If you do modify
+          <STRONG>TOP</STRONG> you should not change the values of
+          <STRONG>BIN</STRONG>, <STRONG>MAN</STRONG> and
+          <STRONG>DOC</STRONG>. If you feel you must change these values then
+          perhaps you've misunderstood the concept behind <EM>Graft</EM> so a
+          re-read of this document may be in order.</P>
+        </DD>
+        <DD>
+          <PRE>
+<STRONG>PERL</STRONG>           = /usr/bin/perl
+</PRE>
+        </DD>
+        <DD>
+          <P>This variable refers to the location of the <EM>Perl</EM>
+          5.<EM>x</EM> that will be used by the <EM>Graft</EM> executable. If
+          you plan on <EM>grafting</EM> <EM>Perl</EM> then this value should
+          be the <EM>grafted</EM> location of <EM>Perl</EM> rather than the
+          installation location of <EM>Perl</EM>. If you are using an
+          operating system that comes with <EM>Perl</EM> 5.<EM>x</EM> - such
+          as RedHat or Ubuntu Linux - then you don't need to worry about
+          <EM>grafting</EM> <EM>Perl</EM> so the value of
+          <STRONG>PERL</STRONG> should reflect its installed location.</P>
+          <P>Most Unix, Linux and other Unix like operating systems ship with
+          <EM>Perl</EM> these days so modifying this value is probably
+          unnecessary.</P>
+        </DD>
+        <DD>
+          <PRE>
+<STRONG>BUILDPERL</STRONG>      = $(PERL)
+</PRE>
+        </DD>
+        <DD>
+          <P><EM>Perl</EM> is required during the <TT>make</TT>. You'll only
+          need to change this if the current installed location of
+          <EM>Perl</EM> is different to the future <EM>grafted</EM> location
+          of <EM>Perl</EM>.</P>
+        </DD>
+        <DD>
+          <PRE>
+<STRONG>LOGFILE</STRONG>                = /var/log/graft
+</PRE>
+        </DD>
+        <DD>
+          <P><EM>Graft</EM> logs all of its actions to a log file. Modify the
+          value of <STRONG>LOGFILE</STRONG> to suit your local needs. An
+          alternative name can be specified on the command line.</P>
+          <P>If you want logging disabled by default, set the value of
+          <STRONG>LOGFILE</STRONG> to <TT>/dev/null</TT>.</P>
+        </DD>
+        <DD>
+          <PRE>
+<STRONG>GRAFT-IGNORE</STRONG>   = .nograft
+<STRONG>GRAFT-EXCLUDE</STRONG>  = .graft-exclude
+<STRONG>GRAFT-INCLUDE</STRONG>  = .graft-include
+<STRONG>GRAFT-CONFIG</STRONG>   = .graft-config
+</PRE>
+        </DD>
+        <DD>
+          <P>These variables hold the names of the special <EM>Graft</EM>
+          files that control whether or not subdirectories or files are
+          <EM>grafted</EM>. If you change these values, try to choose obvious
+          names. If you want the files to appear in a simple directory
+          listing, do not use file names that begin with a dot "."
+          character.</P>
+        </DD>
+        <DD>
+          <PRE>
+<STRONG>GRAFT-NEVER</STRONG>    =
+</PRE>
+        </DD>
+        <DD>
+          <P>This variable holds the names of the files and/or directories
+          that should never be <EM>grafted</EM>. Typically these may be
+          source code repositories as used by systems such as <EM>CVS</EM>,
+          or perhaps lockfiles. The default value is empty but if you wish to
+          specify values, simply add them to the variable using only
+          whitespace as a separator. For example:</P>
+          <PRE>
+GRAFT-NEVER     = CVS RCS SCCS .lock
+</PRE>
+        </DD>
+        <DD>
+          <PRE>
+<STRONG>NEVERGRAFT</STRONG>     = 0
+</PRE>
+        </DD>
+        <DD>
+          <P>If this variable is set to <STRONG>1</STRONG>, the files and/or
+          directories specified by <STRONG>GRAFT-NEVER</STRONG> will be
+          automatically excluded from the <EM>grafted</EM> directory.</P>
+          <P>If this variable is set to <STRONG>0</STRONG>, the files and/or
+          directories specified by <STRONG>GRAFT-NEVER</STRONG> will be not
+          be excluded from the <EM>grafted</EM> directory.</P>
+          <P>The sense of this value is reversed by use of the
+          <STRONG>-C</STRONG> command line option.</P>
+          <P>The automatic exclusion is bypassed completely if the
+          <EM>grafted</EM> directory contains either a <TT>.nograft</TT> or
+          <TT>.graft-include</TT> file.</P>
+        </DD>
+        <DD>
+          <PRE>
+<STRONG>PRUNED-SUFFIX</STRONG>  = .pruned
+</PRE>
+        </DD>
+        <DD>
+          <P>This variable sets the suffix name of <EM>pruned</EM> files.
+          <EM>Pruned</EM> files will be renamed
+          <EM>filename</EM><TT>.pruned</TT>.</P>
+        </DD>
+        <DD>
+          <PRE>
+<STRONG>CONFIG-SUFFIX</STRONG>  = .new
+</PRE>
+        </DD>
+        <DD>
+          <P>This variable sets the suffix name of configuration files that
+          will be copied to the target directory when the target object is in
+          conflict with the package object. The files will be copied as
+          <EM>filename</EM><TT>.new</TT>.</P>
+        </DD>
+        <DD>
+          <PRE>
+<STRONG>SUPERUSER</STRONG>      = 1
+</PRE>
+        </DD>
+        <DD>
+          <P>If this variable is set to <STRONG>1</STRONG> only the superuser
+          can <EM>install</EM>, <EM>delete</EM> or <EM>prune</EM> packages.
+          This can be overridden by the use of the <STRONG>-u</STRONG>
+          command line option. If this variable is set to <STRONG>0</STRONG>,
+          superuser privileges are not required and the <STRONG>-u</STRONG>
+          override command line option is disabled.</P>
+          <P>If you are installing a private copy of <EM>Graft</EM> to manage
+          packages in your home directory you should set
+          <STRONG>SUPERUSER</STRONG> to <STRONG>0</STRONG>.</P>
+          <P>If you're using <EM>Graft</EM> to manage a global set of
+          packages you should set <STRONG>SUPERUSER</STRONG> to
+          <STRONG>1</STRONG>.</P>
+        </DD>
+        <DD>
+          <PRE>
+<STRONG>PRESERVEPERMS</STRONG>  = 0
+</PRE>
+        </DD>
+        <DD>
+          <P>When <EM>grafting</EM> packages, <EM>Graft</EM> will create new
+          directories as required. By setting <STRONG>PRESERVEPERMS</STRONG>
+          to <STRONG>1</STRONG>, the original user id, group id and file
+          modes will be carried over to the new directory. This variable is
+          used only if <STRONG>SUPERUSER</STRONG> is set to
+          <STRONG>1</STRONG>. The sense of this variable can be reversed
+          using the <STRONG>-P</STRONG> command line option.</P>
+        </DD>
+        <DD>
+          <PRE>
+<STRONG>DELETEOBJECTS</STRONG>  = 0
+</PRE>
+        </DD>
+        <DD>
+          <P>When deleting <EM>grafted</EM> packages, <EM>Graft</EM> may
+          leave empty directories. Setting <STRONG>DELETEOBJECTS</STRONG> to
+          <STRONG>1</STRONG> will allow <EM>Graft</EM> to delete these
+          directories. If <STRONG>DELETEOBJECTS</STRONG> is
+          <STRONG>0</STRONG> then <EM>Graft</EM> will display an appropriate
+          message reminding the user that a directory has been emptied. The
+          sense of this variable can be reversed using the
+          <STRONG>-D</STRONG> command line option.</P>
+          <P>It's probably not good practise to set this value to
+          <STRONG>1</STRONG> as some directories may be used as place holders
+          by a number of different packages. If the value is set to
+          <STRONG>0</STRONG> deletion of directories can be forced via the
+          <STRONG>-D</STRONG> command line option.</P>
+          <P>When pruning packages, <EM>graft</EM> can either remove
+          conflicting files or rename them. If <STRONG>DELETEOBJECTS</STRONG>
+          is set to <STRONG>1</STRONG> the default prune action will be to
+          delete conflicting objects. If <STRONG>DELETEOBJECTS</STRONG> is
+          set to <STRONG>0</STRONG> the default prune action will be to
+          rename conflicting objects. The sense of this variable can be
+          reversed using the <STRONG>-D</STRONG> command line option.</P>
+        </DD>
+      </DL>
+      <P>Save your changes and exit from the editor.</P>
+    </LI>
+    <LI>
+      <P>Remove any existing executables by running:</P>
+      <PRE>
+    make clean
+</PRE>
+      <P>You should see output similar to:</P>
+      <PRE>
+    rm -f graft
+</PRE>
+    </LI>
+    <LI>
+      <P>Create the <EM>Graft</EM> executable by running:</P>
+      <PRE>
+    make
+</PRE>
+      <P>You should see output similar to:</P>
+      <PRE>
+    /usr/bin/perl -wc graft.pl
+    graft.pl syntax OK
+    sed                                         \
+        -e 's#xCONFIG-SUFFIXx#.new#g'           \
+        -e 's#xDELETEOBJECTSx#0#g'              \
+        -e 's#xGRAFT-CONFIGx#.graft-config#g'   \
+        -e 's#xGRAFT-EXCLUDEx#.graft-exclude#g' \
+        -e 's#xGRAFT-IGNOREx#.nograft#g'        \
+        -e 's#xGRAFT-INCLUDEx#.graft-include#g' \
+        -e 's#xGRAFT-NEVERx##g'                 \
+        -e 's#xLOGFILEx#/var/log/graft#g'       \
+        -e 's#xNEVERGRAFTx#0#g'                 \
+        -e 's#xPACKAGEDIRx#/usr/local/pkgs#g'   \
+        -e 's#xPERLx#/usr/bin/perl#g'           \
+        -e 's#xPRESERVEPERMSx#0#g'              \
+        -e 's#xPRUNED-SUFFIXx#.pruned#g'        \
+        -e 's#xSUPERUSERx#1#g'                  \
+        -e 's#xTARGETDIRx#/usr/local#g'         \
+        &lt; graft.pl &gt; graft
+    chmod +x graft
+    /usr/bin/perl -wc graft
+    graft syntax OK
+    if [ -n "" ];                                       \
+    then                                                \
+        AUTOIGNORE=1;                                   \
+    else                                                \
+        AUTOIGNORE=0;                                   \
+    fi;                                                 \
+    sed                                                 \
+        -e "s#xAUTOIGNOREx#$AUTOIGNORE#g"               \
+        -e 's#xCONFIG-SUFFIXx#.new#g'                   \
+        -e 's#xDELETEOBJECTSx#0#g'                      \
+        -e 's#xDOCx#/usr/local/pkgs/graft-2.16/doc#g'   \
+        -e 's#xGRAFT-CONFIGx#.graft-config#g'           \
+        -e 's#xGRAFT-EXCLUDEx#.graft-exclude#g'         \
+        -e 's#xGRAFT-IGNOREx#.nograft#g'                \
+        -e 's#xGRAFT-INCLUDEx#.graft-include#g'         \
+        -e 's#xGRAFT-NEVERx##g'                         \
+        -e 's#xLOGFILEx#/var/log/graft#g'               \
+        -e 's#xNEVERGRAFTx#0#g'                         \
+        -e 's#xPACKAGEDIRx#/usr/local/pkgs#g'           \
+        -e 's#xPERLx#/usr/bin/perl#g'                   \
+        -e 's#xPRESERVEPERMSx#0#g'                      \
+        -e 's#xPRUNED-SUFFIXx#.pruned#g'                \
+        -e 's#xSUPERUSERx#1#g'                          \
+        -e 's#xTARGETDIRx#/usr/local#g'                 \
+        -e 's#xVERSIONx#2.16#g'                         \
+        &lt; graft.man &gt; graft.1
+</PRE>
+    </LI>
+    <LI>
+      <P>If you're using the <EM>automounter</EM> under Solaris 2.<EM>x</EM>,
+      the installation process may not be able to directly create the
+      directory specified by <STRONG>TOP</STRONG>. If this is the case then
+      manually create this directory using whatever procedures are
+      appropriate for your operating system.</P>
+      <P>For example, if the <TT>/usr/local</TT> mount point is under the
+      control of the <EM>automounter</EM> via an entry in the
+      <TT>auto_pkgs</TT> map:</P>
+      <PRE>
+    *   nfshost:/export/sparc-SunOS-5.5.1/usr/local/&amp;
+</PRE>
+      <P>you'll need to create the <EM>Graft</EM> installation directory by
+      executing the following command on the machine <EM>nfshost</EM>:</P>
+      <PRE>
+    mkdir /export/sparc-SunOS-5.5.1/usr/local/pkgs/graft-2.16
+</PRE>
+    </LI>
+    <LI>
+      <P>Install the <EM>Graft</EM> executable, manual page and documentation
+      by executing:</P>
+      <PRE>
+    make install
+</PRE>
+      <P>You should see output similar to:</P>
+      <PRE>
+    mkdir -p /usr/local/pkgs/graft-2.16/bin
+    cp graft /usr/local/pkgs/graft-2.16/bin
+
+    for i in graft.1;                                              \
+    do                                                             \
+        manpage=`basename $i`;                                     \
+        man=`expr $i : '.*\.\(.\)'`;                               \
+        mkdir -p /usr/local/pkgs/graft-2.16/man/man$man;           \
+        cp $i /usr/local/pkgs/graft-2.16/man/man$man/$manpage;     \
+        chmod 644 /usr/local/pkgs/graft-2.16/man/man$man/$manpage; \
+    done
+
+    for i in graft.html graft.pdf graft.ps graft.txt;              \
+    do                                                             \
+        mkdir -p /usr/local/pkgs/graft-2.16/doc;                   \
+        cp doc/$i /usr/local/pkgs/graft-2.16/doc;                  \
+        chmod 644 /usr/local/pkgs/graft-2.16/doc/$i;               \
+        touch /usr/local/pkgs/graft-2.16/doc/.nograft;             \
+    done
+</PRE>
+    </LI>
+  </OL>
+  <P><EM>Graft</EM> is now installed and ready to be used.</P>
+  <P><STRONG>NOTE:</STRONG> If you make changes to your <EM>Graft</EM>
+  installation at a later date, please run the following commands:</P>
+  <PRE>
+    make clean
+    make install
+</PRE>
+  <P>Failure to do this may result in a <EM>Graft</EM> manual page that does
+  NOT reflect your current configuration.</P>
+  <H3><A name="rpm_and_deb" id="rpm_and_deb">Creating RPM and DEB
+  packages</A></H3>
+  <P>Beginning with <EM>Graft</EM> 2.11 there is now the ability to create
+  RPM and Debian installation packages. Obviously you'll need one or more of
+  the <EM>rpmbuild</EM> and <EM>dpkg-deb</EM> packages installed on your
+  system.</P>
+  <P>After editing the <TT>Makefile</TT> to suit your environment simply run
+  the appropriate <TT>make</TT> command to create the binary installation
+  package in the current directory:</P>
+  <PRE>
+    make rpm
+</PRE>
+  <P>or</P>
+  <PRE>
+    make deb
+</PRE>
+  <P>The creation of these packages is somewhat experimental. Please let the
+  author know if you have issues.</P>
+  <HR>
+  <H3><A name="gotchas" id="gotchas">Grafting <EM>Graft</EM> and
+  <EM>Perl</EM> - the bootstrap problem</A></H3>
+  <P><STRONG>If you are using an operating system that comes with
+  <EM>Perl</EM> 5.<EM>x</EM> - such as RedHat or Ubuntu Linux - then you
+  don't need to worry about <EM>grafting</EM> <EM>Perl</EM>, so this section
+  can be ignored.</STRONG></P>
+  <P><STRONG>However if you are a creator of an operating system distribution
+  then this section may be relevant.</STRONG></P>
+  <P>Embedded into the <EM>Graft</EM> executable is the location of the
+  <EM>Perl</EM> executable. If you've understood the concept behind
+  <EM>Graft</EM> then this location may be the <EM>grafted</EM> location of
+  <EM>Perl</EM> rather than the true location of <EM>Perl</EM>.</P>
+  <P>This presents a dilemma when you come to <EM>graft</EM> both
+  <EM>Graft</EM> and <EM>Perl</EM>. You can't run the <EM>grafted</EM>
+  location of the <EM>Graft</EM> executable because it doesn't exist yet, and
+  you can't run the real location of the <EM>Graft</EM> executable because
+  <EM>Perl</EM> hasn't been <EM>grafted</EM> yet.</P>
+  <P>Assuming that <EM>Graft</EM> and <EM>Perl</EM> are installed in</P>
+  <PRE>
+    /usr/local/pkgs/graft-2.16
+    /usr/local/pkgs/perl-5.18.2
+</PRE>
+  <P>you can resolve this dilemma by executing the following commands:</P>
+  <PRE>
+    /usr/local/pkgs/perl-5.18.2/bin/perl /usr/local/pkgs/graft-2.16/bin/graft -i graft-2.16
+    /usr/local/pkgs/perl-5.18.2/bin/perl /usr/local/pkgs/graft-2.16/bin/graft -i perl-5.18.2
+</PRE>
+  <P>This will <EM>graft</EM> both <EM>Graft</EM> and <EM>Perl</EM> from the
+  default package installation directory (as specified by
+  <STRONG>PACKAGEDIR</STRONG> in the <TT>Makefile</TT>) into your default
+  target directory (as specified by <STRONG>TARGETDIR</STRONG> in the
+  <TT>Makefile</TT>).</P>
+  <P>If you don't wish to use the default directories you can use the
+  following commands to <EM>graft</EM> the packages into <TT>/pkgs</TT>
+  instead of <TT>/usr/local</TT> for example:</P>
+  <PRE>
+    /usr/local/pkgs/perl-5.18.2/bin/perl /usr/local/pkgs/graft-2.16/bin/graft -i -t /pkgs /usr/local/pkgs/graft-2.16
+    /usr/local/pkgs/perl-5.18.2/bin/perl /usr/local/pkgs/graft-2.16/bin/graft -i -t /pkgs /usr/local/pkgs/perl-5.18.2
+</PRE>
+  <P>Now both <EM>Graft</EM> and <EM>Perl</EM> have been <EM>grafted</EM> and
+  any other package can be <EM>grafted</EM> by executing the simpler
+  command:</P>
+  <PRE>
+    graft -i <EM>package</EM>
+</PRE>
+  <P>The <EM>Graft</EM> distribution includes a program called
+  <TT>graftBootStrap.sh</TT> which allows you to easily <EM>graft</EM> both
+  <EM>Graft</EM> and <EM>Perl</EM>. It can be found in the <EM>contrib</EM>
+  directory of the distribution. Thanks to Gordon Rowell for providing
+  it.</P>
+  <P>You may also find the <TT>-L</TT> command line option to be useful to
+  programmatically determine where <EM>Graft</EM> expects to find
+  <EM>Perl</EM> along with the default locations of its log file, target and
+  package directories. See the <A href="#graft-L">Information</A> section
+  below for details.</P>
+  <HR>
+  <H2><A name="using-graft" id="using-graft">Using <EM>Graft</EM></A></H2>
+  <H3><A name="compiling-packages" id="compiling-packages">Compiling
+  Packages</A></H3>
+  <P>Any packages you wish to place under the control of <EM>Graft</EM>
+  should be compiled and installed in such a way that any package dependent
+  files are referenced with the ACTUAL package installation directory rather
+  than the common area in which <EM>Graft</EM> will be creating symbolic
+  links. For example, ensure that <EM>Perl</EM> version <EM>5.18.2</EM> is
+  looking for its library files in
+  <TT>/usr/local/pkgs/perl-5.18.2/lib/perl5</TT> instead of
+  <TT>/usr/local/lib/perl5</TT>. This approach will allow you to easily
+  separate multiple versions of the same package without any problems.</P>
+  <HR width="25%">
+  <H3><A name="usage" id="usage"><EM>Graft</EM> command line options</A></H3>
+  <P>All of the details concerning actions, package locations and target
+  directories are passed to <EM>Graft</EM> on the command line.
+  (<EM>Graft</EM> 1.<EM>x</EM> used a configuration file. This has now been
+  deprecated in favour of a log file).</P>
+  <P><EM>Graft</EM>'s command line options can be summarised as:</P>
+  <PRE>
+    graft -i [-P|u] [-l log] [-n] [-v|V] [-r /rootdir] [-s|-t target] package(s)
+    graft -d [-D] [-u] [-l log] [-n] [-v|V] [-r /rootdir] [-s|-t target] package(s)
+    graft -p [-D] [-u] [-l log] [-n] [-v|V] [-r /rootdir] [-s|-t target] package(s)
+    graft -L
+</PRE>
+  <P><EM>Graft</EM> has four basic actions:</P>
+  <OL>
+    <LI>
+      <P><A name="graft-i" id="graft-i"><STRONG>Install</STRONG></A></P>
+      <PRE>
+    graft -i [-C] [-P|u] [-l log] [-n] [-v|V] [-r /rootdir] [-s|-t target] package(s)
+</PRE>
+      <DL>
+        <DT><STRONG>-i</STRONG></DT>
+        <DD>
+          <P>Install symbolic links from the package installation directory
+          to the target directory. Requires superuser privileges if
+          <STRONG>SUPERUSER</STRONG> was set to <STRONG>1</STRONG> in the
+          <TT>Makefile</TT>.</P>
+        </DD>
+        <DT><STRONG>-C</STRONG></DT>
+        <DD>
+          <P>If <STRONG>NEVERGRAFT</STRONG> was set to <STRONG>1</STRONG> in
+          the <TT>Makefile</TT>, disable the automatic exclusion of files
+          and/or directories whose names exactly match the values specified
+          by <STRONG>GRAFT-NEVER</STRONG> in the <TT>Makefile</TT>.</P>
+          <P>If <STRONG>NEVERGRAFT</STRONG> was set to <STRONG>0</STRONG> in
+          the <TT>Makefile</TT>, force the automatic exclusion of files
+          and/or directories whose names exactly match the values specified
+          by <STRONG>GRAFT-NEVER</STRONG> in the <TT>Makefile</TT>.</P>
+          <P>Can only be used with the -i option.</P>
+          <P>This option is ignored for each <EM>grafted</EM> directory, if
+          the directory contains a <TT>.nograft</TT> or
+          <TT>.graft-include</TT> file.</P>
+          <P>The <EM>Graft</EM> manual page will correctly reflect the
+          behaviour of this option based on the values specified in the
+          <TT>Makefile</TT>. If there are no objects specified for
+          <STRONG>GRAFT-NEVER</STRONG> then this option will be silently
+          ignored and will not appear in the help message nor in the manual
+          page.</P>
+        </DD>
+        <DT><STRONG>-P</STRONG></DT>
+        <DD>
+          <P>Preserve modes and ownerships when creating new directories or
+          copying files if <STRONG>PRESERVEPERMS</STRONG> was set to
+          <STRONG>0</STRONG> in the <TT>Makefile</TT>. Do not preserve modes
+          and ownerships if the option is not provided on the command
+          line.</P>
+          <P>Do not preserve modes and ownerships when creating new
+          directories or copying files if <STRONG>PRESERVEPERMS</STRONG> was
+          set to <STRONG>1</STRONG> in the <TT>Makefile</TT>. Preserve modes
+          and ownerships if the option is not provided on the command
+          line.</P>
+          <P>Cannot be used with the <STRONG>-u</STRONG> option.</P>
+          <P>This option will be silently ignored if the effective user of
+          <EM>Graft</EM> is not root.</P>
+          <P>The <EM>Graft</EM> manual page will correctly reflect the
+          behaviour of this option based on the values specified in the
+          <TT>Makefile</TT>. This option will be silently ignored and will
+          not appear in the help message nor in the manual page if
+          <STRONG>SUPERUSER</STRONG> was set to <STRONG>0</STRONG> in the
+          <TT>Makefile</TT>.</P>
+        </DD>
+        <DT><STRONG>-u</STRONG></DT>
+        <DD>
+          <P>Superuser privileges are not required when installing
+          packages.</P>
+          <P>Cannot be used with the <STRONG>-P</STRONG> option.</P>
+          <P>This option is only available if <STRONG>SUPERUSER</STRONG> was
+          set to <STRONG>1</STRONG> in the <TT>Makefile</TT>.</P>
+          <P>The <EM>Graft</EM> manual page will correctly reflect the
+          behaviour of this option based on the values specified in the
+          <TT>Makefile</TT>. This option will be silently ignored and will
+          not appear in the help message nor in the manual page if
+          <STRONG>SUPERUSER</STRONG> was set to <STRONG>0</STRONG> in the
+          <TT>Makefile</TT>.</P>
+        </DD>
+        <DT><STRONG>-l <EM>log</EM></STRONG></DT>
+        <DD>
+          <P>Specify an alternate log file instead of the default specified
+          by <STRONG>LOGFILE</STRONG> in the <TT>Makefile</TT>. No logging is
+          performed if the <STRONG>-n</STRONG> option is used.</P>
+          <P>Log entries have the form:</P>
+          <PRE>
+    878790215   1.10+   I    /usr/local/pkgs/cpio-2.4.2            /usr/local
+    878888916   2.1     I    /usr/local/pkgs/gzip-1.2.4            /usr/local
+    878888916   2.1     IC   /usr/local/pkgs/gzip-1.2.4/bin/gzip   invalid symlink
+</PRE>
+          <P>This shows that a development version of <EM>graft</EM> (1.10+)
+          was used to install symbolic links from
+          <TT>/usr/local/pkgs/cpio-2.4.2</TT> to <TT>/usr/local</TT>. A new
+          version of <EM>graft</EM> (2.1) was used to install symbolic links
+          from <TT>/usr/local/pkgs/gzip-1.2.4</TT> to <TT>/usr/local</TT>.
+          The <TT>IC</TT> entry indicates that a conflict occurred during
+          this installation - the file <TT>/usr/local/pkgs/bin/gzip</TT> was
+          a symbolic link to something other than
+          <TT>/usr/local/pkgs/gzip-1.2.4/bin/gzip</TT>.</P>
+        </DD>
+        <DT><STRONG>-n</STRONG></DT>
+        <DD>
+          <P>List actions but do not perform them. Implies the very verbose
+          option. Does not require superuser privileges regardless of the
+          value of <STRONG>SUPERUSER</STRONG> in the <TT>Makefile</TT>.</P>
+        </DD>
+        <DT><STRONG>-v</STRONG></DT>
+        <DD>
+          <P>Be verbose.</P>
+        </DD>
+        <DT><STRONG>-V</STRONG></DT>
+        <DD>
+          <P>Be very verbose.</P>
+        </DD>
+        <DT><STRONG>-r <EM>/rootdir</EM></STRONG></DT>
+        <DD>
+          <P>Use the fully qualified named directory as the root directory
+          for all graft operations. The source directory, target directory
+          and log file will all be relative to this specific directory.</P>
+          <P>Can only be used by the superuser.</P>
+        </DD>
+        <DT><STRONG>-s</STRONG></DT>
+        <DD>
+          <P><EM>Stow</EM>/<EM>Depot</EM> compatibility mode. Infer the
+          <EM>Graft</EM> target directory from each package installation
+          directory in the manner of <EM>Stow</EM> and <EM>Depot</EM>.</P>
+          <P>Target directory is the <TT>dirname</TT> of the <TT>dirname</TT>
+          of the package installation directory. (Yes that really is two
+          <TT>dirname</TT>s). So if the package installation directory is</P>
+          <PRE>
+    /usr/local/depot/gzip-1.2.4
+</PRE>
+          <P>the package will be <EM>grafted</EM> into</P>
+          <PRE>
+    /usr/local
+</PRE>
+          <P>Cannot be used with the <STRONG>-t</STRONG> option.</P>
+        </DD>
+        <DT><STRONG>-t <EM>target</EM></STRONG></DT>
+        <DD>
+          <P>Override the default <EM>graft</EM> target directory with
+          <STRONG><EM>target</EM></STRONG>. The value of
+          <STRONG><EM>target</EM></STRONG> must be a fully qualified
+          directory and it must exist.</P>
+          <P>Cannot be used with the <STRONG>-s</STRONG> option.</P>
+        </DD>
+        <DT><STRONG>package</STRONG></DT>
+        <DD>
+          <P>Install the named package. If <STRONG>package</STRONG> is a
+          fully qualified directory, use it as the package installation
+          directory. If <STRONG>package</STRONG> is not a fully qualified
+          directory, prepend it with the value of <STRONG>PACKAGEDIR</STRONG>
+          as specified in the <TT>Makefile</TT>.</P>
+        </DD>
+      </DL>
+      <HR width="10%">
+    </LI>
+    <LI>
+      <P><A name="graft-d" id="graft-d"><STRONG>Delete</STRONG></A></P>
+      <PRE>
+    graft -d [-D] [-u] [-l log] [-n] [-v|V] [-r /rootdir] [-s|-t target] package(s)
+</PRE>
+      <DL>
+        <DT><STRONG>-d</STRONG></DT>
+        <DD>
+          <P>Delete symbolic links from the package target directory to the
+          package installation directory. Requires superuser privileges if
+          <STRONG>SUPERUSER</STRONG> was set to <STRONG>1</STRONG> in the
+          <TT>Makefile</TT>.</P>
+        </DD>
+        <DT><STRONG>-D</STRONG></DT>
+        <DD>
+          <P>Delete empty directories if <STRONG>DELETEOBJECTS</STRONG> was
+          set to <STRONG>0</STRONG> in the <TT>Makefile</TT>. If the option
+          is not provided on the command line, notify the user that a
+          directory has been emptied.</P>
+          <P>Do not delete empty directories if
+          <STRONG>DELETEOBJECTS</STRONG> was set to <STRONG>1</STRONG> in the
+          <TT>Makefile</TT>. Notify the user that a directory has been
+          emptied. If the option is not provided on the command line, delete
+          empty directories.</P>
+          <P>The <EM>Graft</EM> manual page will correctly reflect the
+          behaviour of this option based on the values specified in the
+          <TT>Makefile</TT>.</P>
+        </DD>
+        <DT><STRONG>-u</STRONG></DT>
+        <DD>
+          <P>Superuser privileges are not required when deleting
+          packages.</P>
+          <P>This option is only available if <STRONG>SUPERUSER</STRONG> was
+          set to <STRONG>1</STRONG> in the <TT>Makefile</TT>.</P>
+          <P>The <EM>Graft</EM> manual page will correctly reflect the
+          behaviour of this option based on the values specified in the
+          <TT>Makefile</TT>. This option will be silently ignored and will
+          not appear in the help message nor in the manual page if
+          <STRONG>SUPERUSER</STRONG> was set to <STRONG>0</STRONG> in the
+          <TT>Makefile</TT>.</P>
+        </DD>
+        <DT><STRONG>-l <EM>log</EM></STRONG></DT>
+        <DD>
+          <P>Specify an alternate log file instead of the default specified
+          by <STRONG>LOGFILE</STRONG> in the <TT>Makefile</TT>. No logging is
+          performed if the <STRONG>-n</STRONG> option is used.</P>
+          <P>Log entries have the form:</P>
+          <PRE>
+    879126278       1.10+   D       /usr/local/pkgs/weblint-1.017     /usr/local
+    879126278       1.10+   DC      /usr/local/pkgs/weblint-1.017/bin/weblint  file exists
+    879126278       1.10+   DC      /usr/local/pkgs/weblint-1.017/man/man1/weblint.1  file exists
+</PRE>
+          <P>This shows that a development version of <EM>graft</EM> (1.10+)
+          was used to delete symbolic links from <TT>/usr/local</TT> to
+          <TT>/usr/local/pkgs/weblint-1.017</TT>. The <TT>DC</TT> entries
+          indicate that conflicts occurred during this action - the files
+          <TT>/usr/local/bin/weblint</TT> and
+          <TT>/usr/local/man/man1/weblint.1</TT> already exist.</P>
+        </DD>
+        <DT><STRONG>-n</STRONG></DT>
+        <DD>
+          <P>List actions but do not perform them. Implies the very verbose
+          option. Does not require superuser privileges regardless of the
+          value of <STRONG>SUPERUSER</STRONG> in the <TT>Makefile</TT>.</P>
+        </DD>
+        <DT><STRONG>-v</STRONG></DT>
+        <DD>
+          <P>Be verbose.</P>
+        </DD>
+        <DT><STRONG>-V</STRONG></DT>
+        <DD>
+          <P>Be very verbose.</P>
+        </DD>
+        <DT><STRONG>-r <EM>/rootdir</EM></STRONG></DT>
+        <DD>
+          <P>Use the fully qualified named directory as the root directory
+          for all graft operations. The source directory, target directory
+          and log file will all be relative to this specific directory.</P>
+          <P>Can only be used by the superuser.</P>
+        </DD>
+        <DT><STRONG>-s</STRONG></DT>
+        <DD>
+          <P><EM>Stow</EM>/<EM>Depot</EM> compatibility mode. Infer the
+          <EM>Graft</EM> target directory from each package installation
+          directory in the manner of <EM>Stow</EM> and <EM>Depot</EM>.</P>
+          <P>Target directory is the <TT>dirname</TT> of the <TT>dirname</TT>
+          of the package installation directory. (Yes that really is two
+          <TT>dirname</TT>s). So if the package installation directory is</P>
+          <PRE>
+    /usr/local/depot/gzip-1.2.4
+</PRE>
+          <P>the package will be <EM>grafted</EM> into</P>
+          <PRE>
+    /usr/local
+</PRE>
+          <P>Cannot be used with the <STRONG>-t</STRONG> option.</P>
+        </DD>
+        <DT><STRONG>-t <EM>target</EM></STRONG></DT>
+        <DD>
+          <P>Override the default <EM>graft</EM> target directory with
+          <STRONG><EM>target</EM></STRONG>. The value of
+          <STRONG><EM>target</EM></STRONG> must be a fully qualified
+          directory and it must exist.</P>
+          <P>Cannot be used with the <STRONG>-s</STRONG> option.</P>
+        </DD>
+        <DT><STRONG>package</STRONG></DT>
+        <DD>
+          <P>Delete the named package. If <STRONG>package</STRONG> is a fully
+          qualified directory, use it as the package installation directory.
+          If <STRONG>package</STRONG> is not a fully qualified directory,
+          prepend it with the value of <STRONG>PACKAGEDIR</STRONG> as
+          specified in the <TT>Makefile</TT>.</P>
+        </DD>
+      </DL>
+      <HR width="10%">
+    </LI>
+    <LI>
+      <P><A name="graft-p" id="graft-p"><STRONG>Prune</STRONG></A></P>
+      <PRE>
+    graft -p [-D] [-u] [-l log] [-n] [-v|V] [-r /rootdir] [-s|-t target] package(s)
+</PRE>
+      <DL>
+        <DT><STRONG>-p</STRONG></DT>
+        <DD>
+          <P>Prune objects (files, links or directories) from the package
+          target directory that are in conflict with the package installation
+          directory. Requires superuser privileges if
+          <STRONG>SUPERUSER</STRONG> was set to <STRONG>1</STRONG> in the
+          <TT>Makefile</TT>.</P>
+        </DD>
+        <DT><STRONG>-D</STRONG></DT>
+        <DD>
+          <P>Remove conflicting objects if <STRONG>DELETEOBJECTS</STRONG> was
+          set to <STRONG>0</STRONG> in the <TT>Makefile</TT>. Rename
+          conflicting objects as <TT><EM>object</EM>.pruned</TT> if the
+          option is not provided on the command line.</P>
+          <P>Rename conflicting objects to <TT><EM>object</EM>.pruned</TT> if
+          <STRONG>DELETEOBJECTS</STRONG> was set to <STRONG>1</STRONG> in the
+          <TT>Makefile</TT>. Remove conflicting objects if the option is not
+          provided in the command line.</P>
+          <P>If a directory is to be removed and it is not empty, it will be
+          renamed as <TT><EM>dir</EM>.pruned</TT> and a suitable warning
+          message will be given regardless of the sense of this flag.</P>
+          <P>The <EM>Graft</EM> manual page will correctly reflect the
+          behaviour of this option based on the values specified in the
+          <TT>Makefile</TT>.</P>
+        </DD>
+        <DT><STRONG>-u</STRONG></DT>
+        <DD>
+          <P>Superuser privileges are not required when pruning packages.</P>
+          <P>This option is only available if <STRONG>SUPERUSER</STRONG> was
+          set to <STRONG>1</STRONG> in the <TT>Makefile</TT>.</P>
+          <P>The <EM>Graft</EM> manual page will correctly reflect the
+          behaviour of this option based on the values specified in the
+          <TT>Makefile</TT>. This option will be silently ignored and will
+          not appear in the help message nor in the manual page if
+          <STRONG>SUPERUSER</STRONG> was set to <STRONG>0</STRONG> in the
+          <TT>Makefile</TT>.</P>
+        </DD>
+        <DT><STRONG>-l <EM>log</EM></STRONG></DT>
+        <DD>
+          <P>Specify an alternate log file instead of the default specified
+          by <STRONG>LOGFILE</STRONG> in the <TT>Makefile</TT>. No logging is
+          performed if the <STRONG>-n</STRONG> option is used.</P>
+          <P>Log entries have the form:</P>
+          <PRE>
+    879126283       1.10+   P       /usr/local/pkgs/weblint-1.017     /usr/local
+</PRE>
+          <P>This shows that a development version of <EM>graft</EM> (1.10+)
+          was used to delete objects from <TT>/usr/local</TT> that were in
+          conflict with <TT>/usr/local/pkgs/weblint-1.017</TT>.</P>
+        </DD>
+        <DT><STRONG>-n</STRONG></DT>
+        <DD>
+          <P>List actions but do not perform them. Implies the very verbose
+          option. Does not require superuser privileges regardless of the
+          value of <STRONG>SUPERUSER</STRONG> in the <TT>Makefile</TT>.</P>
+        </DD>
+        <DT><STRONG>-v</STRONG></DT>
+        <DD>
+          <P>Be verbose.</P>
+        </DD>
+        <DT><STRONG>-V</STRONG></DT>
+        <DD>
+          <P>Be very verbose.</P>
+        </DD>
+        <DT><STRONG>-r <EM>/rootdir</EM></STRONG></DT>
+        <DD>
+          <P>Use the fully qualified named directory as the root directory
+          for all graft operations. The source directory, target directory
+          and log file will all be relative to this specific directory.</P>
+          <P>Can only be used by the superuser.</P>
+        </DD>
+        <DT><STRONG>-s</STRONG></DT>
+        <DD>
+          <P><EM>Stow</EM>/<EM>Depot</EM> compatibility mode. Infer the
+          <EM>Graft</EM> target directory from each package installation
+          directory in the manner of <EM>Stow</EM> and <EM>Depot</EM>.</P>
+          <P>Target directory is the <TT>dirname</TT> of the <TT>dirname</TT>
+          of the package installation directory. (Yes that really is two
+          <TT>dirname</TT>s). So if the package installation directory is</P>
+          <PRE>
+    /usr/local/depot/gzip-1.2.4
+</PRE>
+          <P>the package will be <EM>grafted</EM> into</P>
+          <PRE>
+    /usr/local
+</PRE>
+          <P>Cannot be used with the <STRONG>-t</STRONG> option.</P>
+        </DD>
+        <DT><STRONG>-t <EM>target</EM></STRONG></DT>
+        <DD>
+          <P>Override the default <EM>graft</EM> target directory with
+          <STRONG><EM>target</EM></STRONG>. The value of
+          <STRONG><EM>target</EM></STRONG> must be a fully qualified
+          directory and it must exist.</P>
+          <P>Cannot be used with the <STRONG>-s</STRONG> option.</P>
+        </DD>
+        <DT><STRONG>package</STRONG></DT>
+        <DD>
+          <P>Prune the named package. If <STRONG>package</STRONG> is a fully
+          qualified directory, use it as the package installation directory.
+          If <STRONG>package</STRONG> is not a fully qualified directory,
+          prepend it with the value of <STRONG>PACKAGEDIR</STRONG> as
+          specified in the <TT>Makefile</TT>.</P>
+        </DD>
+      </DL>
+    </LI>
+    <LI>
+      <P><A name="graft-L" id="graft-L"><STRONG>Information</STRONG></A></P>
+      <PRE>
+    graft -L
+</PRE>
+      <DL>
+        <DT><STRONG>-L</STRONG></DT>
+        <DD>
+          <P>This is a special mode and it overrides all other command line
+          arguments. When present <STRONG>graft</STRONG> will display the
+          <STRONG>default</STRONG> locations for Perl, the graft log file,
+          the target directory, and the package directory in a form suitable
+          for creating environment variables for Bourne like shells. The
+          output will appear on <STRONG>STDOUT</STRONG> as follows:</P>
+          <PRE>
+    GRAFT_PERL=/usr/bin/perl
+    GRAFT_LOGFILE=/var/log/graft
+    GRAFT_TARGETDIR=/usr/local
+    GRAFT_PACKAGEDIR=/usr/local/pkgs
+</PRE>
+          <P>You can set these environment variables using one of the
+          following methods.</P>
+          <PRE>
+    eval "$(graft -L)"    # modern shells such as bash, zsh etc
+    eval "`graft -L`"     # older shells such as sh etc
+</PRE>
+        </DD>
+      </DL>
+    </LI>
+  </OL>
+  <HR width="25%">
+  <H3><A name="testing" id="testing">Testing the <EM>Graft</EM>
+  Installation</A></H3>
+  <P>Before creating the symbolic links from the target directory to the
+  package directory, you may wish to see what actions <EM>Graft</EM> will
+  perform. Execute the following command:</P>
+  <PRE>
+    graft -i -n <EM>package-name</EM>
+</PRE>
+  <P>The <TT>-i</TT> option tells <EM>Graft</EM> to install the package and
+  the <TT>-n</TT> option tells <EM>Graft</EM> to report on its actions
+  without actually performing them. The default <EM>Graft</EM> target
+  directory will be used and the package installation directory will be taken
+  from the fully qualified package argument or the default value will be
+  prepended to the package argument if it is not fully qualified.</P>
+  <P><EM>Graft</EM> will report on the following actions:</P>
+  <UL>
+    <LI>
+      <P>Installing links to <EM>package-location</EM> in
+      <EM>package-target</EM></P>
+      <P>Indicates the real package location and its <EM>grafted</EM>
+      target.</P>
+    </LI>
+    <LI>
+      <P>Processing <EM>package-directory</EM></P>
+      <P>Indicates which package directory is being processed.</P>
+    </LI>
+    <LI>
+      <P>MKDIR <EM>dirname</EM></P>
+      <P>This destination directory will be created.</P>
+    </LI>
+    <LI>
+      <P>SYMLINK <EM>dest-package-file</EM> -&gt; <EM>package-file</EM></P>
+      <P>This symbolic link will be created.</P>
+    </LI>
+    <LI>
+      <P>NOP <EM>string</EM></P>
+      <P>No action was necessary for this package object.</P>
+    </LI>
+    <LI>
+      <P>BYPASS <EM>dirname</EM> - .nograft file found</P>
+      <P>This directory contains a file called <TT>.nograft</TT> so its
+      contents and any subdirectories will be bypassed by <EM>Graft</EM>.</P>
+    </LI>
+    <LI>
+      <P>READING include file
+      <EM>package-dir</EM><TT>/.graft-include</TT></P>
+      <P>The directory currently being processed by <EM>Graft</EM> contains a
+      file called <TT>.graft-include</TT> which contains a list of file
+      and/or directory names from the directory that should only be
+      <EM>grafted</EM>. The contents of this file are being read by
+      <EM>Graft</EM>.</P>
+    </LI>
+    <LI>
+      <P>INCLUDE file <EM>package-file</EM> - listed in
+      <EM>package-dir</EM><TT>/.graft-include</TT></P>
+      <P>The file name mentioned in this message appears in the
+      <EM>.graft-include</EM> file and the file exists in the directory
+      currently being processed. It will be <TT>grafted</TT>.</P>
+    </LI>
+    <LI>
+      <P>IGNORE file <EM>package-file</EM> - not listed in
+      <EM>package-dir</EM><TT>/.graft-include</TT></P>
+      <P>The file name mentioned in this message does not appear in the
+      <EM>.graft-include</EM> file and the file exists in the directory
+      currently being processed. It will not be <TT>grafted</TT>.</P>
+    </LI>
+    <LI>
+      <P>INCLUDE directory <EM>package-directory</EM> - listed in
+      <EM>package-dir</EM><TT>/.graft-include</TT></P>
+      <P>The directory name mentioned in this message appears in the
+      <EM>.graft-include</EM> file and the directory exists in the directory
+      currently being processed. It will be <TT>grafted</TT>.</P>
+    </LI>
+    <LI>
+      <P>IGNORE directory <EM>package-file</EM> - not listed in
+      <EM>package-dir</EM><TT>/.graft-include</TT></P>
+      <P>The directory name mentioned in this message does not appear in the
+      <EM>.graft-include</EM> file and the directory exists in the directory
+      currently being processed. It will not be <TT>grafted</TT>.</P>
+    </LI>
+    <LI>
+      <P>READING exclude file
+      <EM>package-dir</EM><TT>/.graft-exclude</TT></P>
+      <P>The directory currently being processed by <EM>Graft</EM> contains a
+      file called <TT>.graft-exclude</TT> which contains a list of file
+      and/or directory names from the directory that should not be
+      <EM>grafted</EM>. The contents of this file are being read by
+      <EM>Graft</EM>.</P>
+    </LI>
+    <LI>
+      <P>IGNORE include file <EM>package-dir</EM><TT>/.graft-include</TT>,
+      overridden by exclude file
+      <EM>package-dir</EM><TT>/.graft-exclude</TT></P>
+      <P>The directory currently being processed by <EM>Graft</EM> contains a
+      file called <TT>.graft-exclude</TT> as well as a file called
+      <TT>.graft-include</TT>. The <TT>.graft-exclude</TT> file takes
+      precedence over the <TT>.graft-include</TT> file, so the latter file
+      will be ignored.</P>
+    </LI>
+    <LI>
+      <P>EXCLUDE file <EM>package-file</EM> - listed in
+      <EM>package-dir</EM><TT>/.graft-exclude</TT></P>
+      <P>The file name mentioned in this message appears in the
+      <EM>.graft-exclude</EM> file and the file exists in the directory
+      currently being processed. It will not be <TT>grafted</TT>.</P>
+    </LI>
+    <LI>
+      <P>EXCLUDE directory <EM>package-directory</EM> - listed in
+      <EM>package-dir</EM><TT>/.graft-exclude</TT></P>
+      <P>The directory name mentioned in this message appears in the
+      <EM>.graft-exclude</EM> file and the directory exists in the directory
+      currently being processed. It will not be <TT>grafted</TT>.</P>
+    </LI>
+    <LI>
+      <P>CONFLICT <EM>message</EM></P>
+      <P><EM>Graft</EM> could not successfully process a package object. One
+      of the following conditions was encountered:</P>
+      <UL>
+        <LI>The package object is a directory and the target object exists
+        but it not a directory.</LI>
+        <LI>The package object is not a directory and the target object
+        exists and is not a symbolic link.</LI>
+        <LI>The package object is not a directory and the target object
+        exists and is a symbolic link to something other than the package
+        object.</LI>
+      </UL>
+      <P>Conflicts are ALWAYS reported on standard error. If you wish to see
+      if the installation of a package will have any conflicts, you can
+      execute:</P>
+      <PRE>
+    graft -i -n <EM>package-name</EM> &gt; /dev/null
+</PRE>
+      <P>Only <TT>CONFLICT</TT> messages will be displayed. If nothing is
+      displayed then you can safely conclude that this package can be
+      installed using <EM>Graft</EM> without any conflicts.</P>
+    </LI>
+  </UL>
+  <P>If you were to test the installation of the <EM>kermit-5A190</EM>
+  package you would execute the command:</P>
+  <PRE>
+    graft -i -n kermit-5A190
+</PRE>You should see output resembling:
+  <PRE>
+    Installing   links to /usr/local/pkgs/kermit-5A190 in /usr/local
+    Processing   /usr/local/pkgs/kermit-5A190
+    SYMLINK      /usr/local/README -&gt; /usr/local/pkgs/kermit-5A190/README
+    NOP          /usr/local/pkgs/kermit-5A190/bin and /usr/local/bin are both directories
+    Processing   /usr/local/pkgs/kermit-5A190/bin
+    SYMLINK      /usr/local/bin/kermit -&gt; /usr/local/pkgs/kermit-5A190/bin/kermit
+    SYMLINK      /usr/local/bin/wart -&gt; /usr/local/pkgs/kermit-5A190/bin/wart
+    NOP          /usr/local/pkgs/kermit-5A190/man and /usr/local/man are both directories
+    Processing   /usr/local/pkgs/kermit-5A190/man
+    NOP          /usr/local/pkgs/kermit-5A190/man/man1 and /usr/local/man/man1 are both directories
+    Processing   /usr/local/pkgs/kermit-5A190/man/man1
+    SYMLINK      /usr/local/man/man1/kermit.1 -&gt; /usr/local/pkgs/kermit-5A190/man/man1/kermit.1
+    MKDIR        /usr/local/doc
+    Processing   /usr/local/pkgs/kermit-5A190/doc
+    SYMLINK      /usr/local/doc/ckccfg.doc -&gt; /usr/local/pkgs/kermit-5A190/doc/ckccfg.doc
+    SYMLINK      /usr/local/doc/ckuins.doc -&gt; /usr/local/pkgs/kermit-5A190/doc/ckuins.doc
+    SYMLINK      /usr/local/doc/ckc190.upd -&gt; /usr/local/pkgs/kermit-5A190/doc/ckc190.upd
+    SYMLINK      /usr/local/doc/ckcker.upd -&gt; /usr/local/pkgs/kermit-5A190/doc/ckcker.upd
+    SYMLINK      /usr/local/doc/ckaaaa.hlp -&gt; /usr/local/pkgs/kermit-5A190/doc/ckaaaa.hlp
+    SYMLINK      /usr/local/doc/ckuaaa.hlp -&gt; /usr/local/pkgs/kermit-5A190/doc/ckuaaa.hlp
+    NOP          /usr/local/pkgs/kermit-5A190/lib and /usr/local/lib are both directories
+    Processing   /usr/local/pkgs/kermit-5A190/lib
+    SYMLINK      /usr/local/lib/ckedemo.ini -&gt; /usr/local/pkgs/kermit-5A190/lib/ckedemo.ini
+    SYMLINK      /usr/local/lib/ckeracu.ini -&gt; /usr/local/pkgs/kermit-5A190/lib/ckeracu.ini
+    SYMLINK      /usr/local/lib/ckermit.ini -&gt; /usr/local/pkgs/kermit-5A190/lib/ckermit.ini
+    SYMLINK      /usr/local/lib/ckermod.ini -&gt; /usr/local/pkgs/kermit-5A190/lib/ckermod.ini
+    SYMLINK      /usr/local/lib/cketest.ini -&gt; /usr/local/pkgs/kermit-5A190/lib/cketest.ini
+    SYMLINK      /usr/local/lib/ckevt.ini -&gt; /usr/local/pkgs/kermit-5A190/lib/ckevt.ini
+    SYMLINK      /usr/local/lib/ckurzsz.ini -&gt; /usr/local/pkgs/kermit-5A190/lib/ckurzsz.ini
+</PRE>
+  <P>This output shows you that most of the directories already exist
+  (indicated by the <TT>NOP</TT> flags). A symbolic link will be created in
+  the relevant target directory to each of the files in the
+  <EM>kermit-5A190</EM> package. One directory exists in the
+  <EM>kermit-5A190</EM> package that does not exist in the target -
+  <TT>doc</TT>. This directory will be created by <EM>Graft</EM>.</P>
+  <P><STRONG>NOTE</STRONG>: If you are using the <EM>automounter</EM> you may
+  not be able to create the directory <TT>/usr/local/doc</TT>. You'll have to
+  create the directory on the NFS server under the file system in which it
+  really lives. You should be familiar with the peculiarities of the
+  <EM>automounter</EM> and your specific site configuration before creating
+  any directories directly under mount points used by the
+  <EM>automounter</EM>.</P>
+  <HR width="25%">
+  <H3><A name="installing-packages" id="installing-packages">Installing
+  Packages</A></H3>
+  <P>Once you have ensured that <EM>Graft</EM> will perform the correct
+  actions, you can execute:</P>
+  <PRE>
+    graft -i <EM>package-name</EM>
+</PRE>
+  <P>So to install <EM>kermit</EM> you would execute:</P>
+  <PRE>
+    graft -i kermit-5A190
+</PRE>
+  <P>There will be no output from <EM>Graft</EM> unless it encounters a
+  conflict. If you wish to see more information you can specify one of the
+  verbose flags. For a minimum of output you can execute:</P>
+  <PRE>
+    graft -i -v kermit-5A190
+</PRE>
+  <P>You should see the following output:</P>
+  <PRE>
+    Processing   /usr/local/pkgs/kermit-5A190
+    Processing   /usr/local/pkgs/kermit-5A190/bin
+    Processing   /usr/local/pkgs/kermit-5A190/man
+    Processing   /usr/local/pkgs/kermit-5A190/man/man1
+    Processing   /usr/local/pkgs/kermit-5A190/doc
+    Processing   /usr/local/pkgs/kermit-5A190/lib
+</PRE>
+  <P>If you choose the very verbose option by executing:</P>
+  <PRE>
+    graft -i -V kermit-5A190
+</PRE>
+  <P>the output will be the same as that when the <TT>-n</TT> option was
+  used, however this time <EM>Graft</EM> will actually create the symbolic
+  links.</P>
+  <PRE>
+    Installing   links to /usr/local/pkgs/kermit-5A190 in /usr/local
+    Processing   /usr/local/pkgs/kermit-5A190
+    SYMLINK      /usr/local/README -&gt; /usr/local/pkgs/kermit-5A190/README
+    NOP          /usr/local/pkgs/kermit-5A190/bin and /usr/local/bin are both directories
+    Processing   /usr/local/pkgs/kermit-5A190/bin
+    SYMLINK      /usr/local/bin/kermit -&gt; /usr/local/pkgs/kermit-5A190/bin/kermit
+    SYMLINK      /usr/local/bin/wart -&gt; /usr/local/pkgs/kermit-5A190/bin/wart
+    NOP          /usr/local/pkgs/kermit-5A190/man and /usr/local/man are both directories
+    Processing   /usr/local/pkgs/kermit-5A190/man
+    NOP          /usr/local/pkgs/kermit-5A190/man/man1 and /usr/local/man/man1 are both directories
+    Processing   /usr/local/pkgs/kermit-5A190/man/man1
+    SYMLINK      /usr/local/man/man1/kermit.1 -&gt; /usr/local/pkgs/kermit-5A190/man/man1/kermit.1
+    NOP          /usr/local/pkgs/kermit-5A190/doc and /usr/local/doc are both directories
+    Processing   /usr/local/pkgs/kermit-5A190/doc
+    SYMLINK      /usr/local/doc/ckccfg.doc -&gt; /usr/local/pkgs/kermit-5A190/doc/ckccfg.doc
+    SYMLINK      /usr/local/doc/ckuins.doc -&gt; /usr/local/pkgs/kermit-5A190/doc/ckuins.doc
+    SYMLINK      /usr/local/doc/ckc190.upd -&gt; /usr/local/pkgs/kermit-5A190/doc/ckc190.upd
+    SYMLINK      /usr/local/doc/ckcker.upd -&gt; /usr/local/pkgs/kermit-5A190/doc/ckcker.upd
+    SYMLINK      /usr/local/doc/ckaaaa.hlp -&gt; /usr/local/pkgs/kermit-5A190/doc/ckaaaa.hlp
+    SYMLINK      /usr/local/doc/ckuaaa.hlp -&gt; /usr/local/pkgs/kermit-5A190/doc/ckuaaa.hlp
+    NOP          /usr/local/pkgs/kermit-5A190/lib and /usr/local/lib are both directories
+    Processing   /usr/local/pkgs/kermit-5A190/lib
+    SYMLINK      /usr/local/lib/ckedemo.ini -&gt; /usr/local/pkgs/kermit-5A190/lib/ckedemo.ini
+    SYMLINK      /usr/local/lib/ckeracu.ini -&gt; /usr/local/pkgs/kermit-5A190/lib/ckeracu.ini
+    SYMLINK      /usr/local/lib/ckermit.ini -&gt; /usr/local/pkgs/kermit-5A190/lib/ckermit.ini
+    SYMLINK      /usr/local/lib/ckermod.ini -&gt; /usr/local/pkgs/kermit-5A190/lib/ckermod.ini
+    SYMLINK      /usr/local/lib/cketest.ini -&gt; /usr/local/pkgs/kermit-5A190/lib/cketest.ini
+    SYMLINK      /usr/local/lib/ckevt.ini -&gt; /usr/local/pkgs/kermit-5A190/lib/ckevt.ini
+    SYMLINK      /usr/local/lib/ckurzsz.ini -&gt; /usr/local/pkgs/kermit-5A190/lib/ckurzsz.ini
+</PRE>
+  <P><STRONG>NOTE</STRONG>: In this case the <TT>/usr/local/doc</TT>
+  directory was not created by <EM>Graft</EM> because <TT>/usr/local</TT> is
+  a mount point controlled by the <EM>automounter</EM>. The <TT>doc</TT>
+  directory was created manually prior to executing <EM>Graft</EM>.</P>
+  <HR width="25%">
+  <H3><A name="bypass" id="bypass">Bypassing package directories</A></H3>
+  <P>You may have the need to place only part of a package under the control
+  of <EM>Graft</EM>. Examples of such occasions may be:</P>
+  <UL>
+    <LI>
+      <P>The contents of one package conflict with another package. For
+      example <TT>/usr/local/pkgs/gcc-2.7.2.1/lib/libiberty.a</TT> and
+      <TT>/usr/local/pkgs/gdb-4.16/lib/libiberty.a</TT>.</P>
+    </LI>
+    <LI>
+      <P>A package directory is obviously the exclusive domain of the package
+      and no benefit will be gained by creating symbolic links to its files.
+      For example <TT>/usr/local/pkgs/perl-5.18.2/lib/perl5</TT>.</P>
+      <P><STRONG>NOTE</STRONG>: This will ONLY work if you originally
+      compiled and installed the package such that it refers to its files by
+      their '<EM>real</EM>' pathnames and NOT by the virtual pathnames
+      provided by <EM>Graft</EM>.</P>
+    </LI>
+  </UL>
+  <P>You can force <EM>Graft</EM> to bypass a directory by creating the
+  file</P>
+  <PRE>
+    <EM>package-name/dir/dir/</EM>.nograft
+</PRE>
+  <P>Using the second example above, if you were to create the file:</P>
+  <PRE>
+    /usr/local/pkgs/perl-5.18.2/lib/perl5/.nograft
+</PRE>
+  <P><EM>Graft</EM> would create directories and symbolic links for every
+  file and directory down to <TT>/usr/local/pkgs/perl-5.18.2/lib</TT>. The
+  <TT>perl5</TT> directory and anything below it would not be created.</P>
+  <HR width="25%">
+  <H3><A name="include" id="include">Including specific files and/or
+  directories</A></H3>
+  <P>There may be the occasional need to include specific files and/or
+  directories in a directory, rather than the entire directory tree itself.
+  An example of such an occurrence would be the case where a package contains
+  a number of subdirectories, only one of which is required to be
+  <EM>grafted</EM>.</P>
+  <P>You can force <EM>Graft</EM> to only include any number of files and/or
+  directories in a package directory by creating the file</P>
+  <PRE>
+    .graft-include
+</PRE>
+  <P>in the same directory.</P>
+  <P><TT>.graft-include</TT> will contain a list of file and/or directory
+  names - one per line - of the files and/or directories you wish to
+  include.</P>
+  <P>Consider the <EM>a2ps</EM> package for example. When installed it
+  contains the following directories:</P>
+  <PRE>
+    /usr/local/pkgs/a2ps-4.13b/bin
+    /usr/local/pkgs/a2ps-4.13b/etc
+    /usr/local/pkgs/a2ps-4.13b/include
+    /usr/local/pkgs/a2ps-4.13b/info
+    /usr/local/pkgs/a2ps-4.13b/lib
+    /usr/local/pkgs/a2ps-4.13b/man
+    /usr/local/pkgs/a2ps-4.13b/share
+</PRE>
+  <P>The only directory you wish to <EM>graft</EM> is the <TT>bin</TT>
+  directory. You could place a <TT>.nograft</TT> file in each of the other
+  directories, <STRONG>OR</STRONG> you could create a single
+  <TT>.graft-include</TT> file in
+  <TT>/usr/local/pkgs/a2ps-4.13b/.graft-include</TT>. This file would
+  contain</P>
+  <PRE>
+    bin
+</PRE>
+  <P>Now only the <TT>bin</TT> directory will be <EM>grafted</EM>.</P>
+  <HR width="25%">
+  <H3><A name="exclude" id="exclude">Excluding specific files and/or
+  directories</A></H3>
+  <P>There may be the occasional need to exclude specific files and/or
+  directories from a directory, rather than the entire directory itself. An
+  example of such an occurrence would be the case where files from different
+  packages have the same name. <EM>Emacs</EM> and <EM>Xemacs</EM> use the
+  same names for a number of their configuration files for example.</P>
+  <P>You can force <EM>Graft</EM> to exclude any number of files and/or
+  directories from a package directory by creating the file</P>
+  <PRE>
+    .graft-exclude
+</PRE>
+  <P>in the same directory.</P>
+  <P><TT>.graft-exclude</TT> will contain a list of file and/or directory
+  names - one per line - of the files and/or directories you wish to
+  exclude.</P>
+  <P>For example, if you did not wish the file</P>
+  <PRE>
+    /usr/local/pkgs/sudo-1.5.3/etc/sudoers
+</PRE>
+  <P>to be <EM>grafted</EM> as</P>
+  <PRE>
+    /usr/local/etc/sudoers
+</PRE>
+  <P>but you did want</P>
+  <PRE>
+    /usr/local/pkgs/sudo-1.5.3/etc/visudo
+</PRE>
+  <P>to be <EM>grafted</EM> as</P>
+  <PRE>
+    /usr/local/etc/visudo
+</PRE>
+  <P>you would create the file</P>
+  <PRE>
+    /usr/local/pkgs/sudo-1.5.3/etc/.graft-exclude
+</PRE>
+  <P>and ensure its contents contained the line:</P>
+  <PRE>
+    sudoers
+</PRE>
+  <P><STRONG>NOTE:</STRONG> Any entries made in a <TT>.graft-exclude</TT>
+  file will override the same entries made in a <TT>.graft-include</TT> file.
+  That is, if a file or directory name is listen in both a
+  <TT>.graft-exclude</TT> and a <TT>.graft-include</TT> file, it will be
+  <STRONG>excluded</STRONG> from the <EM>graft</EM>.</P>
+  <HR width="25%">
+  <H3><A name="config_dirs" id="config_dirs">Grafting configuration
+  files</A></H3>
+  <P>Beginning with <EM>Graft</EM> 2.11 there is now the ability to treat a
+  package directory as a repository for configuration files. In this case you
+  would place a <TT>.graft-config</TT> file in the package directory and any
+  files in that directory would be <STRONG>copied</STRONG> to the target
+  directory. Files in conflict would also be copied but would have a default
+  suffix of <EM>.new</EM> to ensure the existing file is not clobbered.
+  Conflict discovery is achieved using a simple 32-bit CRC check. This
+  feature has been added to assist operating system distributors manage
+  system configuration files, specifically it was added at the request of the
+  maintainer of the <A href="http://www.dragora.org/">Dragora GNU/Linux</A>
+  distribution.</P>
+  <P>Consider the following example. You may wish to upgrade the
+  <EM>openssh</EM> server as part of an upgrade to your distribution. In
+  order to preserve any local user modifications to the relevant
+  configuration files you would add a <TT>.graft-config</TT> file to the
+  package as follows:</P>
+  <PRE>
+    /usr/local/pkgs/openssh-server-6.61/etc/default/.graft-config
+    /usr/local/pkgs/openssh-server-6.61/etc/init.d/.graft-config
+    /usr/local/pkgs/openssh-server-6.61/etc/init/.graft-config
+    /usr/local/pkgs/openssh-server-6.61/etc/network/if-up.d/.graft-config
+    /usr/local/pkgs/openssh-server-6.61/etc/pam.d/.graft-config
+    /usr/local/pkgs/openssh-server-6.61/etc/ufw/applications.d/.graft-config
+    /usr/local/pkgs/openssh-server-6.61/lib/systemd/system/.graft-config
+</PRE>
+  <P>The other directories in the distribution would not require any control
+  files.</P>
+  <P>Imagine that the local administrator has made some changes to
+  <TT>/etc/pam.d/sshd</TT> such as adding additional authentication methods
+  to support two-factor authentication for example. As the distribution
+  maintainer you do not want to reverse this local change so when the local
+  administrator upgrades the distribution, <EM>Graft</EM>
+  <STRONG>copies</STRONG> the new <TT>/etc/pam.d/sshd</TT> file to
+  <TT>/etc/pam.d/sshd.new</TT> which allows the local administrator to merge
+  their changes with any new features supported by the upgrade.</P>
+  <P>To take full advantage of this feature you may need to explicitly set
+  the target directory as follows:</P>
+  <PRE>
+    graft -i -t / openssh-server-6.61
+</PRE>
+  <HR width="25%">
+  <H3><A name="partial-graft" id="partial-graft">Grafting part of a
+  package</A></H3>
+  <P>Some packages can be successfully used when only part of their
+  installation directory is <EM>grafted</EM>. Other packages are recalcitrant
+  and need some special hand holding which can only be solved by
+  <EM>grafting</EM> each section of the package separately.</P>
+  <P>The first scenario can be handled by either <TT>.nograft</TT> files or
+  partial <EM>grafts</EM>. Consider <EM>Perl</EM> version <EM>5.18.2</EM>.
+  When installed in its own directory</P>
+  <PRE>
+    /usr/local/pkgs/perl-5.18.2
+</PRE>
+  <P>there are three subdirectories</P>
+  <PRE>
+    drwxr-sr-x   2 psamuel  bisg         512 Oct 30  1996 bin
+    drwxr-sr-x   3 psamuel  bisg         512 Oct 30  1996 lib
+    drwxr-sr-x   4 psamuel  bisg         512 Oct 30  1996 man
+</PRE>
+  <P>Everything in the <TT>lib</TT> directory is exclusive to <EM>Perl</EM>
+  and does not require <EM>grafting</EM>. Therefore, <EM>perl-5.18.2</EM> can
+  be <EM>grafted</EM> using either of the following two methods:</P>
+  <PRE>
+    touch /usr/local/pkgs/perl-5.18.2/lib/.nograft
+    graft -i perl-5.18.2
+</PRE>or
+  <PRE>
+    graft -it /usr/local/bin perl-5.18.2/bin
+    graft -it /usr/local/man perl-5.18.2/man
+</PRE>
+  <P>Now let's consider a recalcitrant package - <EM>ObjectStore</EM> version
+  4.0.2.a.0. When installed in</P>
+  <PRE>
+    /usr/local/pkgs/ostore-4.0.2.a.0
+</PRE>
+  <P>the following files and directories are available:</P>
+  <PRE>
+    -rwxrwxr-x   1 pauln    one3        1089 Oct 31  1996 Copyright
+    drwxrwxrwx   8 pauln    one3         512 Oct  2  1996 common
+    drwxrwxrwx   6 pauln    one3         512 Oct 31  1996 sunpro
+    -rw-r-----   1 root     one3     1900544 Apr 29  1997 txn.log
+</PRE>
+  <P>The executable programs that need to be <EM>grafted</EM> are in
+  <TT>sunpro/bin</TT> and the manual pages that need to be <EM>grafted</EM>
+  are in <TT>common/man</TT>. Everything else in the package does not need to
+  be <EM>grafted</EM>. If the entire package was to be <EM>grafted</EM> the
+  result would be two directories that are not in the regular
+  <STRONG>$PATH</STRONG> and <STRONG>$MANPATH</STRONG> environment variables
+  - namely <TT>/usr/local/common/man</TT> and <TT>/usr/local/sunpro/bin</TT>,
+  plus a host of other directories that are not relevant for
+  <EM>grafting</EM>. No amount of <TT>.nograft</TT> and
+  <TT>.graft-exclude</TT> juggling will solve this problem.</P>
+  <P>The solution is to use two partial <EM>grafts</EM>:</P>
+  <PRE>
+    graft -it /usr/local/bin ostore-4.0.2.a.0/sunpro/bin
+    graft -it /usr/local/man ostore-4.0.2.a.0/common/bin
+</PRE>
+  <P>Using this approach, the correct executables and manual pages are
+  available without the need to <EM>graft</EM> unnecessary files and
+  directories.</P>
+  <HR width="25%">
+  <H3><A name="deleting-packages" id="deleting-packages">Deleting and/or
+  Upgrading Packages</A></H3>
+  <P>If you wish to upgrade a package - let's assume you wish to upgrade
+  <EM>kermit</EM> from version 5A190 to version 6.0.192 - you'd follow these
+  steps.</P>
+  <P>Firstly, you'd compile and install <EM>kermit-6.0.192</EM> in</P>
+  <PRE>
+    /usr/local/pkgs/kermit-6.0.192
+</PRE>
+  <P>Once you'd tested it to your satisfaction, you'd need to delete the
+  symbolic links to the current <EM>grafted</EM> version. You can check which
+  actions <EM>Graft</EM> will perform by executing:</P>
+  <PRE>
+    graft -d -n kermit-5A190
+</PRE>
+  <P>You'll see output similar to</P>
+  <PRE>
+    Uninstalling links from /usr/local to /usr/local/pkgs/kermit-5A190
+    Processing   /usr/local/pkgs/kermit-5A190
+    Processing   /usr/local/pkgs/kermit-5A190/bin
+    UNLINK       /usr/local/bin/kermit
+    UNLINK       /usr/local/bin/wart
+    Processing   /usr/local/pkgs/kermit-5A190/man
+    Processing   /usr/local/pkgs/kermit-5A190/man/man1
+    UNLINK       /usr/local/man/man1/kermit.1
+    Processing   /usr/local/pkgs/kermit-5A190/doc
+    UNLINK       /usr/local/doc/ckccfg.doc
+    UNLINK       /usr/local/doc/ckuins.doc
+    UNLINK       /usr/local/doc/ckc190.upd
+    UNLINK       /usr/local/doc/ckcker.upd
+    UNLINK       /usr/local/doc/ckaaaa.hlp
+    UNLINK       /usr/local/doc/ckuaaa.hlp
+    Processing   /usr/local/pkgs/kermit-5A190/lib
+    UNLINK       /usr/local/lib/ckedemo.ini
+    UNLINK       /usr/local/lib/ckeracu.ini
+    UNLINK       /usr/local/lib/ckermit.ini
+    UNLINK       /usr/local/lib/ckermod.ini
+    UNLINK       /usr/local/lib/cketest.ini
+    UNLINK       /usr/local/lib/ckevt.ini
+    UNLINK       /usr/local/lib/ckurzsz.ini
+    UNLINK       /usr/local/lib/.testing
+</PRE>
+  <P>If you're happy with the output from the test deletion you can delete
+  the <EM>grafted</EM> package. Once again, you'll only see output if a
+  failure occurs unless you use one of the verbose options.</P>
+  <P>If you execute:</P>
+  <PRE>
+    graft -dV kermit-5A190
+</PRE>
+  <P>you'll see:</P>
+  <PRE>
+    Uninstalling links from /usr/local to /usr/local/pkgs/kermit-5A190
+    Processing   /usr/local/pkgs/kermit-5A190
+    Processing   /usr/local/pkgs/kermit-5A190/bin
+    UNLINK       /usr/local/bin/kermit
+    UNLINK       /usr/local/bin/wart
+    Processing   /usr/local/pkgs/kermit-5A190/man
+    Processing   /usr/local/pkgs/kermit-5A190/man/man1
+    UNLINK       /usr/local/man/man1/kermit.1
+    Processing   /usr/local/pkgs/kermit-5A190/doc
+    UNLINK       /usr/local/doc/ckccfg.doc
+    UNLINK       /usr/local/doc/ckuins.doc
+    UNLINK       /usr/local/doc/ckc190.upd
+    UNLINK       /usr/local/doc/ckcker.upd
+    UNLINK       /usr/local/doc/ckaaaa.hlp
+    UNLINK       /usr/local/doc/ckuaaa.hlp
+    EMPTY        /usr/local/doc is now empty. Delete manually if necessary.
+    Processing   /usr/local/pkgs/kermit-5A190/lib
+    UNLINK       /usr/local/lib/ckedemo.ini
+    UNLINK       /usr/local/lib/ckeracu.ini
+    UNLINK       /usr/local/lib/ckermit.ini
+    UNLINK       /usr/local/lib/ckermod.ini
+    UNLINK       /usr/local/lib/cketest.ini
+    UNLINK       /usr/local/lib/ckevt.ini
+    UNLINK       /usr/local/lib/ckurzsz.ini
+</PRE>
+  <P><STRONG>NOTE</STRONG>: In this case the existence of an empty directory
+  has been discovered. If <EM>Graft</EM> empties a directory during a package
+  deletion, it will either notify you or delete the directory depending on
+  the combination of variables in the <TT>Makefile</TT> and command line
+  options. It's probably better practise not to automatically delete empty
+  directories as they may be used by other packages - such as lock file
+  directories for example.</P>
+  <P>Now you can remove the <EM>real</EM> package contents. (You may not wish
+  to do this immediately as some legacy systems may depend on features
+  provided by the older version or you may feel the need for further testing
+  before feeling confident that the old version can be removed):</P>
+  <PRE>
+    rm -rf /usr/local/pkgs/kermit-5A190
+</PRE>
+  <P>Now you can <EM>graft</EM> the new version of <EM>kermit</EM>.
+  Execute:</P>
+  <PRE>
+    graft -i -n kermit-6.0.192
+</PRE>
+  <P>to ensure that the <EM>grafting</EM> will proceed without error. Once
+  you are satisfied that this is the case you can <EM>graft</EM> the new
+  package by executing:</P>
+  <PRE>
+    graft -i kermit-6.0.192
+</PRE>
+  <HR width="25%">
+  <H3><A name="transitioning" id="transitioning">Transitioning a package to
+  <EM>Graft</EM> control</A></H3>
+  <P><EM>Graft</EM> can be used to easily transition a package from its
+  current installation in your target directory to a <EM>grafted</EM>
+  installation.</P>
+  <P>As an example, let's consider the package <EM>weblint</EM> version
+  1.017. It consists of three files installed in:</P>
+  <PRE>
+    /usr/local/bin/weblint
+    /usr/local/lib/global.weblintrc
+    /usr/local/man/man1/weblint.1
+</PRE>
+  <P>The first step is to create a new copy of the package in its own
+  directory:</P>
+  <PRE>
+    /usr/local/pkgs/weblint-1.017
+</PRE>
+  <P>Ensure that any references to library files are now made to
+  <TT>/usr/local/pkgs/weblint-1.017/lib</TT> instead of
+  <TT>/usr/local/lib</TT>.</P>
+  <P>Test the new installation to ensure it behaves as expected.</P>
+  <P>Then prune the old files from <TT>/usr/local/*</TT> using:</P>
+  <PRE>
+    graft -pV weblint-1.017
+</PRE>
+  <P>You'd expect to see output similar to:</P>
+  <PRE>
+    Pruning      files in /usr/local which conflict with /usr/local/pkgs/weblint-1.017
+    Processing   /usr/local/pkgs/weblint-1.017
+    Processing   /usr/local/pkgs/weblint-1.017/man
+    Processing   /usr/local/pkgs/weblint-1.017/man/man1
+    RENAME       /usr/local/man/man1/weblint.1
+    Processing   /usr/local/pkgs/weblint-1.017/bin
+    RENAME       /usr/local/bin/weblint
+    Processing   /usr/local/pkgs/weblint-1.017/lib
+    RENAME       /usr/local/lib/global.weblintrc
+</PRE>
+  <P>If you elected to delete conflicting files instead of renaming them
+  you'd use:</P>
+  <PRE>
+    graft -pDV weblint-1.017
+</PRE>
+  <P>and you'd see output similar to:</P>
+  <PRE>
+    Pruning      files in /usr/local which conflict with /usr/local/pkgs/weblint-1.017
+    Processing   /usr/local/pkgs/weblint-1.017
+    Processing   /usr/local/pkgs/weblint-1.017/man
+    Processing   /usr/local/pkgs/weblint-1.017/man/man1
+    UNLINK       /usr/local/man/man1/weblint.1
+    Processing   /usr/local/pkgs/weblint-1.017/bin
+    UNLINK       /usr/local/bin/weblint
+    Processing   /usr/local/pkgs/weblint-1.017/lib
+    UNLINK       /usr/local/lib/global.weblintrc
+</PRE>
+  <P>Now the new version of <EM>weblint</EM> 1.017 can be <EM>grafted</EM> in
+  place:</P>
+  <PRE>
+    graft -i weblint-1.017
+</PRE>
+  <P>The <EM>grafted</EM> version of <EM>weblint</EM> can now be tested.</P>
+  <P>If we renamed conflicting files, they can be removed once the
+  <EM>grafted</EM> <EM>weblint</EM> has been satisfactorily tested:</P>
+  <PRE>
+    rm /usr/local/man/man1/weblint.1.pruned
+    rm /usr/local/bin/weblint.pruned
+    rm /usr/local/lib/global.weblintrc.pruned
+</PRE>
+  <HR width="25%">
+  <H3><A name="conflicts" id="conflicts">Conflict Processing</A></H3>
+  <P>Occasionally <EM>Graft</EM> will fail to completely install a package.
+  This occurs because <EM>Graft</EM> encounters a conflict. A conflict is
+  defined as one of the following possibilities:</P>
+  <DIV class="c1">
+    <TABLE summary="Conflcits" border="2" cellpadding="3">
+      <TR>
+        <TH>Package Object</TH>
+        <TH>Target Object</TH>
+      </TR>
+      <TR>
+        <TD>directory</TD>
+        <TD>not a directory</TD>
+      </TR>
+      <TR>
+        <TD>file</TD>
+        <TD>directory</TD>
+      </TR>
+      <TR>
+        <TD>file</TD>
+        <TD>file</TD>
+      </TR>
+      <TR>
+        <TD>file</TD>
+        <TD>symbolic link to something other than the package object</TD>
+      </TR>
+    </TABLE>
+  </DIV>
+  <P>If <EM>Graft</EM> encounters such a conflict during the installation of
+  a package it will report the conflict and exit.</P>
+  <P>Resolving the conflict depends on the nature of the conflict and is
+  beyond the scope of this discussion - however most conflicts will either be
+  the result of attempting to <EM>graft</EM> a package on top of the same
+  package actually installed in the target directory or a file name clash
+  between two (or more) different packages.</P>
+  <P>Conflicts arising from the pre-existence of a package in the target
+  directory can be resolved using <EM>graft</EM>'s prune mechanism described
+  above in <A href="#transitioning">"Transitioning a package to
+  <EM>Graft</EM> control"</A>.</P>
+  <P>File name clash conflicts can be resolved by the use of either a
+  <A href="#bypass"><TT>.nograft</TT></A> or <A href=
+  "#exclude"><TT>.graft-exclude</TT></A> file or by <EM>grafting</EM> only
+  part of a package as described above in <A href="#partial-graft">"Grafting
+  part of a package"</A>.</P>
+  <P>If <EM>Graft</EM> encounters a conflict while deleting a package, it
+  will report the conflict and continue deleting the remainder of the
+  package. In this way <EM>Graft</EM> will delete as much of the package as
+  possible. Conflicts that arise during deletion will probably be the result
+  of an incorrectly installed package or the installation of other components
+  of the same package without the use of <EM>Graft</EM>.</P>
+  <P>Conflict messages are written to standard error. All other messages are
+  written to standard output. To quickly determine if a package will have any
+  conflicts when <EM>grafted</EM>, redirect standard output to
+  <TT>/dev/null</TT></P>
+  <PRE>
+    graft -i -n <EM>package</EM> &gt; /dev/null
+</PRE>
+  <P>If you don't see any output then you can safely assume that there will
+  be no conflicts when <EM>grafting</EM> this package.</P>
+  <P>See the comprehensive table above describing how <A href=
+  "#precedence">conflicts are handled</A> for more details.</P>
+  <HR width="25%">
+  <H3><A name="exitstatus" id="exitstatus">Exit Status</A></H3>
+  <P><EM>Graft</EM> will terminate with an exit status of either 0, 1, 2, 3
+  or 4 under the following conditions:</P>
+  <DIV class="c1">
+    <TABLE summary="Exit Status" border="2" cellpadding="3">
+      <TR>
+        <TH>Exit Status</TH>
+        <TH>Condition</TH>
+      </TR>
+      <TR>
+        <TD>
+          <DIV class="c1">
+            <STRONG>0</STRONG>
+          </DIV>
+        </TD>
+        <TD>All operations succeeded.</TD>
+      </TR>
+      <TR>
+        <TD>
+          <DIV class="c1">
+            <STRONG>1</STRONG>
+          </DIV>
+        </TD>
+        <TD>A conflict occurred during installation.</TD>
+      </TR>
+      <TR>
+        <TD>
+          <DIV class="c1">
+            <STRONG>2</STRONG>
+          </DIV>
+        </TD>
+        <TD>Command line syntax was incorrect.</TD>
+      </TR>
+      <TR>
+        <TD>
+          <DIV class="c1">
+            <STRONG>3</STRONG>
+          </DIV>
+        </TD>
+        <TD>One or more packages listed on the command line does not exist.
+        Other valid packages listed on the command line were processed
+        correctly.</TD>
+      </TR>
+      <TR>
+        <TD>
+          <DIV class="c1">
+            <STRONG>4</STRONG>
+          </DIV>
+        </TD>
+        <TD>The log file <TT>/var/log/graft</TT> could not be updated.
+        Usually a result of a permission error. Any other error condition
+        will override this condition.</TD>
+      </TR>
+    </TABLE>
+  </DIV>
+  <HR>
+  <H2><A name="other-pkg-tools" id="other-pkg-tools">Using <EM>Graft</EM>
+  with other package management tools</A></H2>
+  <P>Most Unix vendors have released their own package management tools with
+  their operating systems. Examples of this are Solaris 2.<EM>x</EM> with its
+  <EM>SVR4 Package Manager</EM> <TT>pkgadd</TT>, RedHat Linux with its
+  <EM>RedHat Package Manager</EM> <TT>rpm</TT>, Ubuntu Linux (and other
+  Debian Linux derivatives) with its <TT>dpkg</TT> system and HP-UX
+  10.<EM>x</EM> with its <TT>swinstall</TT> suite. <EM>Graft</EM> has been
+  designed as an adjunct to these package managers rather than a competitor.
+  The author has used <EM>Graft</EM> successfully with all of the operating
+  systems mentioned here.</P>
+  <UL>
+    <LI>
+      <P>Many useful packages available in the public domain and from other
+      commercial sources are not shipped with most flavours of Unix.
+      <EM>Graft</EM> can be used to maintain a rich package environment
+      beyond the set of packages provided by your vendor. Vendor based
+      packages can still be maintained using the vendor's tools and
+      <EM>Graft</EM> can be used to maintain your own packages.</P>
+    </LI>
+    <LI>
+      <P>The vendor based management tools are usually used to maintain
+      single instances of a package on each machine. It is often difficult to
+      have multiple versions of the same package coexisting on the same
+      machine. <EM>Graft</EM> can be used to maintain multiple versions of a
+      package to support legacy, production and development requirements
+      simultaneously.</P>
+    </LI>
+    <LI>
+      <P>Another common problem with vendor supplied software is the speed at
+      which upgrades are available. The large vendors are not known for
+      providing quick fixes to many of their packages. (Notable exceptions to
+      this are the vendors of operating systems based on open source software
+      who can draw on the enormous number of users who submit patches because
+      the source code is available). Using <EM>Graft</EM> you can obtain a
+      working public domain version of a package (if one exists of course)
+      and install it in a different location to the vendor copy. When the
+      vendor releases a new version of the package, it can be installed using
+      the vendor's package management tool and your <EM>grafted</EM> copy can
+      be removed (only if the vendor's version of the package is better than
+      the public domain version).</P>
+    </LI>
+    <LI>
+      <P>Sometimes, a vendor's package doesn't quite perform in the manner
+      you'd like. It may be making assumptions about your file system(s) that
+      are incorrect for your environment or it may not have all the features
+      you'd like. If an alternative package is available - either in the
+      public domain or from other commercial sources - it can be installed
+      and <EM>grafted</EM> accordingly.</P>
+    </LI>
+  </UL>
+  <HR>
+  <H2><A name="availability" id="availability">Availability</A></H2>
+  <P>The latest version of <EM>Graft</EM> should always be available
+  from:</P>
+  <PRE>
+    <A href=
+"http://peters.gormand.com.au/Home/tools/graft">http://peters.gormand.com.au/Home/tools/graft</A>
+</PRE>
+  <HR>
+  <H2><A name="license" id="license">License</A></H2>
+  <P><EM>Graft</EM> is licensed under the terms of the GNU General Public
+  License, Version 2, June 1991.</P>
+  <P>You should have received a copy of the GNU General Public License along
+  with this program; if not, write to the Free Software Foundation, Inc., 59
+  Temple Place, Suite 330, Boston, MA 02111-1307 USA, or download it from the
+  Free Software Foundation's web site:</P>
+  <PRE>
+    <A href=
+"http://www.gnu.org/copyleft/gpl.html">http://www.gnu.org/copyleft/gpl.html</A>
+    <A href=
+"http://www.gnu.org/copyleft/gpl.txt">http://www.gnu.org/copyleft/gpl.txt</A>
+</PRE>
+  <HR>
+</BODY>
+</HTML>

@@ -1,0 +1,181 @@
+#
+# RPM spec file for Peter Samuel's graft package.
+#
+# $Id: graft.spec.in,v 2.16 2018/04/16 14:56:46 psamuel Exp $
+#
+
+# WARNING: The spec file has only been tested using RPM 4.11 running on
+# LinuxMint 17.3 (a Debian derivative). So it may not work as expected when
+# running on a system that actually uses RPM as its package manager. If you
+# find this to be the case AND you get it working please let me know so I
+# can update this spec file and its corresponding Makefile target
+# appropriately. Thanks!
+
+%define name graft
+%define version xVERSIONx
+%define release 01
+
+Summary:	Virtual package manager
+Name:		%{name}
+Version:	%{version}
+Release:	%{release}
+License:	GPL
+Group:		Networking/Daemons
+Source:		%{name}-%{version}.tar.gz
+URL:		http://peters.gormand.com.au/Home/tools/graft/graft.html
+Packager:	Peter Samuel <peter.r.samuel@gmail.com>
+Provides:	graft
+Requires:	perl >= 5
+BuildRequires:	perl >= 5
+BuildArch:	noarch
+
+%description
+Graft provides a mechanism for managing multiple packages under a single
+directory hierarchy. Packages are installed in self contained directory
+trees and symbolic links from a common area are made to the package files.
+
+This approach allows multiple versions of the same package to co-exist on
+the one system. One version is the commonly available version and symbolic
+links will be made to this version. New versions can be tested and once
+acceptable can replace the current commonly available version. Older
+versions can still be used for legacy systems by using the 'real' path
+name to the package instead of the 'common' path name.
+
+%changelog
+* Mon Apr 16 2018 Peter Samuel <peter.r.samuel@gmail.com>
+- [2.16-01]
+- updated rmfiles() to finish handling orphaned symlinks. Thanks to
+  Matias A. Fonzo.
+- updated man page. Modified logfile table to remove roff errors re
+  "cannot adjust line". Thanks to Matias A. Fonzo.
+- updated man page. Expanded -r rootdir description to make it clearer.
+
+* Fri Apr 13 2018 Peter Samuel <peter.r.samuel@gmail.com>
+- [2.15-01]
+- removed PostScript version of documentation. Saves 1.1M for downloads.
+  After discussions with Matias A. Fonzo.
+- fixed mklink to check for existing links to orphaned source symlinks. Bug
+  introduced in 2.11. Fixed by restoring original logic order. Thanks to
+  Matias A. Fonzo.
+
+* Thu Apr 12 2018 Peter Samuel <peter.r.samuel@gmail.com>
+- [2.14-01]
+- added -L option to show default locations of perl, log file, target
+  dir, and package dir. After feedback from Matias A. Fonzo.
+
+* Tue Mar 13 2018 Peter Samuel <peter.r.samuel@gmail.com>
+- [2.13-01]
+- added -r rootdir option to perform chroot() prior to all operations.
+  Thanks to Matias A. Fonzo.
+- call to ls now calls /bin/ls (only used if copying with preserved
+  permissions)
+- using simple stat() instead of /bin/ls if -r rootdir is also specified
+- minor optimizations in logger() calls
+
+* Tue Feb 16 2017 Peter Samuel <peter.r.samuel@gmail.com>
+- [2.12-01]
+- fixed delete mode for .graft-config files. Was deleting the file instead
+  of preserving it. Also enforcing CRC checks on deletion in the same mode.
+  Thanks to Matias A. Fonzo.
+- .graft-config mode now preserves permissions on copied files when
+  SUPERUSER=1 and PRESERVEPERMS=1 are set in the Makefile.
+  Thanks to Matias A. Fonzo.
+
+* Tue Jan 31 2017 Peter Samuel <peter.r.samuel@gmail.com>
+- [2.11-01]
+- usage details for -C only appear if the Makefile specifies targets for
+  GRAFT-NEVER. Repeated for man page.
+- all $option{x} instances replaced by $option{descriptiveWord}. Makes it
+  easier for me to read the code :)
+- added .graft-config control file. This is a special case where the source
+  directory is _copied_ to the target rather than making symbolic links. If
+  there is a conflict then a file.new will be copied instead. This lead to
+  a major re-write of install(), uninstall() and prune(). Requested by
+  Matias A. Fonzo.
+- major rewrite of the man page
+- update to the graft.spec file to support "make rpm"
+- created Debian control file to support "make deb"
+- updated README with simple installation instructions
+
+* Fri Nov 25 2016 Peter Samuel <peter.r.samuel@gmail.com>
+- [2.10-01]
+- modifies conflict messages on deletion if .nograft or .graft-exclude is
+  in play
+
+* Tue Aug 2 2016 Peter Samuel <peter.r.samuel@gmail.com>
+- [2.9-01]
+- exit statuses honoured even in -n mode. Requested by Matias A. Fonzo.
+
+* Mon Nov 23 2015 Peter Samuel <peter.r.samuel@gmail.com>
+- [2.8-01]
+- fixed trivial bug in 2.7. Graft was always exiting with status 4 :(
+
+* Fri Nov 20 2015 Peter Samuel <peter.r.samuel@gmail.com>
+- [2.7-01]
+- graft exits with a status of 4 if the logfile cannot be updated. Any
+  other error condition will override this action. Requested by Matias A.
+  Fonzo.
+
+* Sat Jul 11 2015 Peter Samuel <peter.r.samuel@gmail.com>
+- [2.6-01]
+- Updated manual page to provide more explict description of what
+  constitutes a package. Thanks to Matias A. Fonzo.
+- Updated man page to show that the are no files for -C (when appropriate).
+- Updated manual page to show the location of the html/ps/pdf/txt docs.
+- Move graft.1 to graft.man so that graft.1 can be built as part of a
+  simple make.
+- Added generic targets to the Makefile for .pl and .man dependencies.
+- Code cleanup and reworking. Runtime configuration and command line
+  options now stored in %config and %options hashes respectively. All that
+  work is done in an init() subroutine.
+- Updated my email addess in all relevant files.
+- Updated location of graft homepage to
+  http://peters.gormand.com.au/Home/tools/graft in all relevant files.
+- Updated html documentation to bring it up to date with respect to Perl
+  versions and the fact that most distros ship with Perl these days so the
+  bootstrap problem is not as important.
+- Updated spec file to generate Makefile then use it.
+
+* Fri Jun 26 2015 Peter Samuel <peter.r.samuel@gmail.com>
+- [2.5-01]
+- Silently ignores -P option if effective user is not root
+
+* Mon Feb 25 2002 Peter Samuel <peters@e-smith.com>
+- [2.4-01]
+- First release as an RPM
+
+%prep
+%setup
+
+%build
+# Need to fool Makefile.dist into thinking that Makefile is up to date.
+cp Makefile.dist Makefile
+
+make				\
+    PACKAGEDIR=/usr/local/pkgs	\
+    TARGETDIR=/usr/local
+
+%install
+
+# We don't want rpm to compress man pages or strip binaries, so turn
+# off the __os_install_post macro. Enabling this macro upsets the auto
+# filelist generation. (Only applies for rpm >= 4).
+%define __os_install_post %{nil}
+
+make						\
+    BIN=../../BUILDROOT/%{name}-%{version}-%{release}.$RPM_ARCH/usr/bin					\
+    MAN=../../BUILDROOT/%{name}-%{version}-%{release}.$RPM_ARCH/usr/share/man				\
+    DOC=../../BUILDROOT/%{name}-%{version}-%{release}.$RPM_ARCH/usr/share/doc/%{name}-%{version}	\
+    install
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+%files
+%attr(755,root,root) /usr/bin/%{name}
+%attr(644,root,root) /usr/share/man/man1/%{name}.1
+%attr(644,root,root) /usr/share/doc/%{name}-%{version}/%{name}.html
+%attr(644,root,root) /usr/share/doc/%{name}-%{version}/%{name}.pdf
+%attr(644,root,root) /usr/share/doc/%{name}-%{version}/%{name}.ps
+%attr(644,root,root) /usr/share/doc/%{name}-%{version}/%{name}.txt
+%attr(644,root,root) /usr/share/doc/%{name}-%{version}/.no%{name}

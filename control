@@ -1,0 +1,19 @@
+Package:	graft
+Version:	xVERSIONx-1
+Section:	base
+Priority:	optional
+Architecture:	all
+Depends:	perl (>=5)
+Maintainer:	Peter Samuel <peter.r.samuel@gmail.com>
+Homepage:	http://peters.gormand.com.au/Home/tools/graft/graft.html
+Description:	Graft
+ Graft provides a mechanism for managing multiple packages under a single
+ directory hierarchy. Packages are installed in self contained directory
+ trees and symbolic links from a common area are made to the package files.
+ .
+ This approach allows multiple versions of the same package to co-exist on
+ the one system. One version is the commonly available version and symbolic
+ links will be made to this version. New versions can be tested and once
+ acceptable can replace the current commonly available version. Older
+ versions can still be used for legacy systems by using the 'real' path
+ name to the package instead of the 'common' path name.

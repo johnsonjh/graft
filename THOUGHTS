@@ -1,0 +1,28 @@
+Things to think about for the next release of graft
+---------------------------------------------------
+
+[I've removed some of the THOUGHTS because I have either implemented them
+(see CHANGES) or I won't be implementing them at all.]
+
+In no specific order ...
+
+###########################################################################
+
+Investigate a file remapping feature - ie graft files with a different
+name. Could be useful for avoiding conflicts and for forcing file name
+prefixes for preinstalled packages. Eg
+
+    /pkgs/bin/gmake	-> /pkgs/gmake-3.5.6/bin/make
+
+Will require double processing for deletion and pruning
+
+You could do the same thing will a little but of manual work. In the above
+example make a hard link
+
+    ln /pkgs/gmake-3.5.6/bin/make /pkgs/gmake-3.5.6/bin/gmake
+
+and then exclude make
+
+    echo make > /pkgs/gmake-3.5.6/bin/.graft-exclude
+
+###########################################################################
