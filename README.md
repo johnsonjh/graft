@@ -1,6 +1,6 @@
 # **Graft**
 
-a package management utility
+A package management utility
 
 ----------------------------
 
