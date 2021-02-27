@@ -4,6 +4,11 @@ A package management utility
 
 ----------------------------
 
+[![DeepSourceA](https://deepsource.io/gh/johnsonjh/graft.svg/?label=active+issues)](https://deepsource.io/gh/johnsonjh/graft/?ref=repository-badge)
+[![DeepSourceR](https://deepsource.io/gh/johnsonjh/graft.svg/?label=resolved+issues)](https://deepsource.io/gh/johnsonjh/graft/?ref=repository-badge)
+
+----------------------------
+
 # Introduction
 
 **Graft** provides a mechanism for managing multiple packages under a single directory hierarchy. 
