@@ -97,5 +97,4 @@ See the man page and the files `./doc/graft.{html,pdf,ps,txt}` for expanded deta
 
 ## Homepage
 
-* <http://peters.gormand.com.au/Home/tools/graft>
-
+- <http://peters.gormand.com.au/Home/tools/graft>
