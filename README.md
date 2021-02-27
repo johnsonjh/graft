@@ -9,15 +9,15 @@ A package management utility
 
 ---
 
-# Introduction
+## Introduction
 
 **Graft** provides a mechanism for managing multiple packages under a single directory hierarchy.
 
 It was inspired by both _Depot_ (Carnegie Mellon University) and _Stow_ (Bob Glickstein).
 
-# Installation
+## Installation
 
-## Module Dependencies
+### Module Dependencies
 
 **Graft** has been written to ensure it uses Perl modules that are considered part of the core Perl distribution. However, it may be possible that you're using a home-grown installation of Perl, or some distribution that doesn't have the same Perl modules as the author's development environment.
 
@@ -35,7 +35,7 @@ You may also see run-time failures when using **graft** with `.graft-config` fil
 
 If you don't have these modules and you do not intend to use `.graft-config` files, then you can continue to use **graft** without issue.
 
-## Prepare
+### Prepare
 
 - `make -f Makefile.dist`
 
@@ -50,13 +50,13 @@ You'll probably want to modify the following variables:
 
 The rest of the parameters are sensible defaults, but please change them to suit your needs. See the comments in the `Makefile` for directions or see the more detailed installation documentation in `doc/graft.html`.
 
-## Build
+### Build
 
 - `make`
 
 There should be no errors
 
-## Install
+### Install
 
 - `make install`
 
@@ -79,15 +79,15 @@ Then use the appropriate `rpm -[i|u] ...` or `dpkg install ...` command to insta
 
 - Note that the _RPM_ package build was tested on a Debian system, so its success on a true _RPM_ based distro has not been verified.
 
-# Documentation
+## Documentation
 
 See the man page and the files `./doc/graft.{html,pdf,ps,txt}` for expanded details on installation and usage.
 
-# Author
+## Author
 
 - Peter Samuel <mailto:peter.r.samuel@gmail.com>
 
-# Thanks
+## Thanks
 
 - Gordon Rowell
 - Charles Butcher
@@ -95,6 +95,7 @@ See the man page and the files `./doc/graft.{html,pdf,ps,txt}` for expanded deta
 - Robert Maldon
 - Matias Fonzo
 
-# Homepage
+## Homepage
 
-- http://peters.gormand.com.au/Home/tools/graft
+* <http://peters.gormand.com.au/Home/tools/graft>
+
