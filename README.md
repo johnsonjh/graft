@@ -54,7 +54,7 @@ The rest of the parameters are sensible defaults, but please change them to suit
 
 - `make`
 
-There should be no errors
+There should be no errors.
 
 ### Install
 
