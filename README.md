@@ -3,7 +3,7 @@
 A package management utility
 
 ---
-
+[![CodacyBadge](https://app.codacy.com/project/badge/Grade/dc422ff220f141bb8afdac655d1ed7a8)](https://www.codacy.com/gh/johnsonjh/graft/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=johnsonjh/graft&amp;utm_campaign=Badge_Grade)
 [![DeepSourceA](https://deepsource.io/gh/johnsonjh/graft.svg/?label=active+issues)](https://deepsource.io/gh/johnsonjh/graft/?ref=repository-badge)
 [![DeepSourceR](https://deepsource.io/gh/johnsonjh/graft.svg/?label=resolved+issues)](https://deepsource.io/gh/johnsonjh/graft/?ref=repository-badge)
 
