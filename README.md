@@ -96,6 +96,13 @@ See the man page and the files `./doc/graft.{html,pdf,ps,txt}` for expanded deta
 - Robert Maldon
 - Matias Fonzo
 
+## Mirrors
+
+- [GitHub](https://github.com/johnsonjh/graft)
+- [GitLab](https://gitlab.com/johnsonjh/graft)
+- [NotABug](https://notabug.org/trn/graft)
+- [SourceHut](https://sr.ht/~trn/graft)
+
 ## Homepage
 
 - <http://peters.gormand.com.au/Home/tools/graft>
